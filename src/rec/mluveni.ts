@@ -9,8 +9,6 @@ export interface Hlas {
   rate: number;
   /** jaký hlas postavičce sedí; hlas tohoto pohlaví má přednost i před přirozenějším */
   pohlavi: 'zena' | 'muz';
-  /** robotický hlas: výšku měníme naplno i u přirozených hlasů */
-  robot?: boolean;
   /** ladění, když prohlížeč hlas požadovaného pohlaví nemá (jinak se odvodí z pitch) */
   nahrada?: { pitch: number; rate: number };
 }
@@ -98,7 +96,7 @@ function zakladniHlas(hlas: Hlas, cs: SpeechSynthesisVoice | undefined): Ladeni 
   const sedi = !!cs && pohlaviHlasu(cs) === hlas.pohlavi;
   if (sedi || !cs || pohlaviHlasu(cs) === undefined) {
     // velká změna výšky zkresluje, u přirozených hlasů ji jen naznačíme
-    const mira = jePrirozeny(cs) && !hlas.robot ? 0.4 : 1;
+    const mira = jePrirozeny(cs) ? 0.4 : 1;
     return { pitch: 1 + (hlas.pitch - 1) * mira, rate: hlas.rate, mira };
   }
   // hlas jiného pohlaví: postavičku odlišíme výrazně jinou výškou a tempem
@@ -165,8 +163,8 @@ export async function rekni(
     if (moje !== relace) return;
     if (nahravka) await prehraj(nahravka);
     else if (mluveniDostupne) {
-      // každá věta trochu jinak, otázka jde nahoru, robot zní pořád stejně
-      const kolisani = hlas.robot ? 0 : (Math.random() - 0.5) * 0.04;
+      // každá věta trochu jinak, otázka jde nahoru
+      const kolisani = (Math.random() - 0.5) * 0.04;
       const otazka = veta.endsWith('?') ? 1.03 : 1;
       await rekniVetu(veta, cs, pitch * otazka * (1 + kolisani), rate * (1 + kolisani / 2));
     } else await new Promise((r) => setTimeout(r, Math.min(600 + veta.length * 70, 2500)));

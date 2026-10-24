@@ -3,26 +3,17 @@
   "edge": {
     "_poznamka": "Zdarma přes edge-tts. Výška v Hz, tempo v procentech.",
     "liska": { "hlas": "cs-CZ-VlastaNeural", "vyska": "+15Hz", "tempo": "+0%" },
-    "robot": { "hlas": "cs-CZ-AntoninNeural", "vyska": "-15Hz", "tempo": "-8%" },
-    "sova": { "hlas": "cs-CZ-VlastaNeural", "vyska": "-10Hz", "tempo": "-10%" },
-    "zabak": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+8Hz", "tempo": "+2%" },
     "banan": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+3Hz", "tempo": "+8%" },
     "vojtacu": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+25Hz", "tempo": "+5%" }
   },
   "azure": {
     "liska": { "hlas": "cs-CZ-VlastaNeural", "vyska": "+8%", "tempo": "+0%" },
-    "robot": { "hlas": "cs-CZ-AntoninNeural", "vyska": "-12%", "tempo": "-8%" },
-    "sova": { "hlas": "cs-CZ-VlastaNeural", "vyska": "-6%", "tempo": "-10%" },
-    "zabak": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+6%", "tempo": "+2%" },
     "banan": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+2%", "tempo": "+8%" },
     "vojtacu": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+15%", "tempo": "+5%" }
   },
   "google": {
     "_poznamka": "Chirp 3 HD nemá dětské hlasy ani výšku, vybrané jsou nejmladší a nejživější: Leda (mladistvá), Fenrir (rozjívený), Achird (přátelský).",
     "liska": { "hlas": "cs-CZ-Chirp3-HD-Leda", "tempo": 1.08 },
-    "robot": { "hlas": "cs-CZ-Chirp3-HD-Charon", "tempo": 0.92 },
-    "sova": { "hlas": "cs-CZ-Chirp3-HD-Kore", "tempo": 0.92 },
-    "zabak": { "hlas": "cs-CZ-Chirp3-HD-Puck" },
     "banan": { "hlas": "cs-CZ-Chirp3-HD-Fenrir", "tempo": 1.1 },
     "vojtacu": { "hlas": "cs-CZ-Chirp3-HD-Achird", "tempo": 1.03 }
   },
@@ -30,9 +21,6 @@
     "_poznamka": "Doplň voice_id hlasů z knihovny ElevenLabs (https://elevenlabs.io/app/voice-library).",
     "model": "eleven_multilingual_v2",
     "liska": { "hlas": "" },
-    "robot": { "hlas": "" },
-    "sova": { "hlas": "" },
-    "zabak": { "hlas": "" },
     "banan": { "hlas": "" },
     "vojtacu": { "hlas": "" }
   }
