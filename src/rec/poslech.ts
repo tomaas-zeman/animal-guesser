@@ -2,7 +2,7 @@
 import type { Odpoved } from '../game/engine';
 
 interface Vysledek {
-  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
+  results: ArrayLike<ArrayLike<{ transcript: string; confidence?: number }> & { isFinal?: boolean }>;
 }
 
 interface Rozpoznavac {
@@ -13,7 +13,9 @@ interface Rozpoznavac {
   onresult: ((e: Vysledek) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onaudiostart: (() => void) | null;
   start(): void;
+  stop(): void;
   abort(): void;
 }
 
@@ -27,13 +29,25 @@ function tridaRozpoznavace(): RozpoznavacTrida | undefined {
 
 export const poslechDostupny = !!tridaRozpoznavace();
 
+/** Jedna varianta přepisu, jak ji vrátil prohlížeč (pro ladění). */
+export interface Prepis {
+  text: string;
+  /** jistota 0–1; Chrome ji u průběžných výsledků často nevyplní (0) */
+  jistota: number;
+  final: boolean;
+}
+
 export interface Slyseni {
   /** přepisy toho, co hráč řekl (víc variant), prázdné pole = nic neslyšel */
   texty: string[];
+  /** všechno, co prohlížeč vrátil, včetně průběžných výsledků */
+  prepisy?: Prepis[];
   /** proč poslech skončil bez výsledku ("no-speech", "network", "aborted"…) */
   chyba?: string;
   /** jak dlouho poslech běžel (ms); velmi krátký poslech bez výsledku je porucha, ne ticho */
   trvani: number;
+  /** poslech ukončila jasná průběžná odpověď, nečekalo se na finální výsledek */
+  zkraceno?: boolean;
 }
 
 export interface Poslech {
@@ -43,31 +57,54 @@ export interface Poslech {
 
 /** Pojistka pro prohlížeče, kde poslech občas neskončí sám. */
 const MAX_DELKA = 20_000;
+/**
+ * Když průběžný přepis obsahuje jasnou odpověď a dál se nic neděje, poslech se
+ * po téhle době ukončí. Chrome u krátkého "ne" jinak někdy čeká na konec řeči
+ * několik sekund, nebo finální výsledek nepošle vůbec.
+ */
+export const CEKANI_PO_ODPOVEDI = 700;
 
-export function poslouchej(): Poslech {
+export function poslouchej(naStart?: () => void): Poslech {
   const Trida = tridaRozpoznavace();
-  if (!Trida) return { vysledek: Promise.resolve({ texty: [], chyba: 'nedostupny', trvani: 0 }), zrus() {} };
+  if (!Trida) return { vysledek: Promise.resolve({ texty: [], prepisy: [], chyba: 'nedostupny', trvani: 0 }), zrus() {} };
 
   const r = new Trida();
   r.lang = 'cs-CZ';
   r.continuous = false;
-  // průběžné přepisy jsou pojistka: krátké "ne" Chrome často zachytí jen průběžně a finální výsledek nepošle
   r.interimResults = true;
   r.maxAlternatives = 5;
   const zacatek = Date.now();
   let pojistka: ReturnType<typeof setTimeout> | undefined;
+  let dokonci: ReturnType<typeof setTimeout> | undefined;
+  // mikrofon se rozbíhá chvíli; hráč má poznat, kdy už může mluvit
+  let odstartovano = false;
+  const ohlasStart = () => {
+    if (odstartovano) return;
+    odstartovano = true;
+    naStart?.();
+  };
+  const zalozniStart = setTimeout(ohlasStart, 1000);
+  r.onaudiostart = ohlasStart;
 
   const vysledek = new Promise<Slyseni>((resolve, reject) => {
-    let texty: string[] = [];
-    let prubezne: string[] = [];
+    let prepisy: Prepis[] = [];
     let chyba: string | undefined;
+    let zkraceno = false;
     r.onresult = (e) => {
-      texty = [];
-      prubezne = [];
+      prepisy = [];
       for (let i = 0; i < e.results.length; i++) {
         const alt = e.results[i];
-        const cil = alt.isFinal === false ? prubezne : texty;
-        for (let j = 0; j < alt.length; j++) cil.push(alt[j].transcript);
+        for (let j = 0; j < alt.length; j++) {
+          prepisy.push({ text: alt[j].transcript, jistota: alt[j].confidence ?? 0, final: alt.isFinal !== false });
+        }
+      }
+      clearTimeout(dokonci);
+      const prubezne = prepisy.filter((p) => !p.final).map((p) => p.text);
+      if (prubezne.length && !prepisy.some((p) => p.final) && rozpoznejOdpoved(prubezne)) {
+        dokonci = setTimeout(() => {
+          zkraceno = true;
+          r.stop(); // stop, ne abort: prohlížeč ještě pošle, co má rozpracované
+        }, CEKANI_PO_ODPOVEDI);
       }
     };
     r.onerror = (e) => {
@@ -78,25 +115,41 @@ export function poslouchej(): Poslech {
     };
     r.onend = () => {
       clearTimeout(pojistka);
-      const vse = (texty.some((t) => t.trim()) ? texty : prubezne).filter((t) => t.trim());
-      resolve({ texty: vse, chyba: vse.length ? undefined : chyba, trvani: Date.now() - zacatek });
+      clearTimeout(dokonci);
+      clearTimeout(zalozniStart);
+      const texty = vyberTexty(prepisy);
+      resolve({ texty, prepisy, chyba: texty.length ? undefined : chyba, trvani: Date.now() - zacatek, zkraceno });
     };
   });
 
   try {
     r.start();
   } catch {
+    clearTimeout(zalozniStart);
     // typicky "už běží" hned po předchozím poslechu; volající to zkusí znovu
-    return { vysledek: Promise.resolve({ texty: [], chyba: 'start', trvani: 0 }), zrus() {} };
+    return { vysledek: Promise.resolve({ texty: [], prepisy: [], chyba: 'start', trvani: 0 }), zrus() {} };
   }
   pojistka = setTimeout(() => r.abort(), MAX_DELKA);
   return {
     vysledek,
     zrus: () => {
       clearTimeout(pojistka);
+      clearTimeout(dokonci);
+      clearTimeout(zalozniStart);
       r.abort();
     },
   };
+}
+
+/**
+ * Z přepisů vybere ty, se kterými se pracuje: finální, a když žádné nejsou,
+ * průběžné. Průběžné se přidají i za finální, protože Chrome finální "ne"
+ * občas "opraví" na nesmysl, zatímco průběžně ho slyšel správně.
+ */
+export function vyberTexty(prepisy: Prepis[]): string[] {
+  const finalni = prepisy.filter((p) => p.final && p.text.trim()).map((p) => p.text);
+  const prubezne = prepisy.filter((p) => !p.final && p.text.trim()).map((p) => p.text);
+  return [...finalni, ...prubezne.filter((t) => !finalni.includes(t))];
 }
 
 function normalizuj(text: string): string {
@@ -112,15 +165,24 @@ function normalizuj(text: string): string {
 // Pořadí je důležité: "nevím" obsahuje "ne", "spíš ne" je ne a ne "možná".
 const VZORY: [Odpoved, RegExp][] = [
   ['nevim', /\b(nevim|netusim|nemam tuseni|nevim jiste|nejsem si jist[aey]?|kdo vi|nevi)\b/],
-  // "ne" je krátké a rozpoznávání ho přepisuje všelijak: "Né.", "neee", "nene", "ne ne ne", "mně", "nein"…
+  // "ne" je krátké a rozpoznávání ho přepisuje všelijak: "Né.", "neee", "nene", "ne ne ne", "nein"…
+  // a hráč často odpoví zápornou větou: "nelétá", "nejsou", "nemá křídla"
   [
     'ne',
-    /\b(spis ne|asi ne|nejspis ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|neni|nema|nemuze|nezije|neumi|nikdy|vubec|kdepak|nikoliv|nope|nein|nie)\b|^(n+|mne)$/,
+    /\b(spis ne|asi ne|nejspis ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|nikdy|vubec|kdepak|nikoliv|nope|nein|nie|ne(?!(kdy|kde|kdo|co|jak|kter|kol|jsp|jvi|jl|jen|bo|vim|vi\b|tusim|rozum|slys|boj|chap))[a-z]{2,})\b/,
   ],
-  // zápor slovesa z otázky: "nejí", "neleze", "nebzučí"… (ne "někdy", "nějak", "nejspíš", "několik", "nebo")
-  ['ne', /^(no |to |ale )?ne(?!kd|co|jak|jsp|kter|kol|vi|bo$)[a-z]{2,}( to)?$/],
-  ['mozna', /\b(nejspis|mozna|muze byt|muze|nekdy|asi|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
-  ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
+  ['mozna', /\b(mozna|muze byt|muze|nekdy|asi|nejspis|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
+  ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|jop|jojo|ok|okej|spravne)\b/],
+];
+
+/**
+ * Slabé odpovědi: krátká slova, se kterými si rozpoznávání plete "ne"
+ * ("je" ↔ "ne", "mně"). Platí jen tehdy, když žádná jiná varianta přepisu
+ * nedává jasnou odpověď.
+ */
+const SLABE: [Odpoved, RegExp][] = [
+  ['ne', /^(n+|mne|mne ne|nn)$/],
+  ['ano', /\b(je|ma|umi|zije|jsou|maji)\b/],
 ];
 
 /** Odpověď má pár slov; delší věta je nejspíš hovor okolo, ne odpověď hráče. */
@@ -156,33 +218,60 @@ export function jeStart(texty: string[]): boolean {
   });
 }
 
+/** Jak dlouhou větu ještě prohledá, jestli nekončí odpovědí ("…je to noční zvíře? ne"). */
+const MAX_SLOV_S_ODPOVEDI_NA_KONCI = 8;
+
 /** Je slovo z odpovědi totéž slovo jako v otázce? Stačí stejný začátek: "létá" ~ "létat", "plave" ~ "plavat". */
 function stejneSlovo(a: string, b: string): boolean {
-  if (a.length < 3 || b.length < 3) return a === b;
   const n = Math.min(4, a.length, b.length);
   return a.slice(0, n) === b.slice(0, n) && Math.abs(a.length - b.length) <= 2;
 }
 
-/** Odpověď slovem z otázky: "Umí létat?" "Létá." Vrací null, když to není jedno slovo z otázky. */
+/**
+ * Odpověď slovem z otázky: "Umí létat?" "Létá." Vrací null, když to není jedno slovo z otázky.
+ * Krátká slova ("je", "má") sem nepatří: rozpoznávání si je plete s "ne", řeší je SLABE.
+ */
 function ozvena(t: string, otazka: string): Odpoved | null {
-  if (slov(t) !== 1 || t.startsWith('ne')) return null;
+  if (slov(t) !== 1 || t.length < 3 || t.startsWith('ne')) return null;
   // slova se záporem ("není hmyz") a "nebo" nejsou ozvěna kladné odpovědi
-  const slova = normalizuj(otazka).split(' ').filter((s) => s.length >= 2 && !s.startsWith('ne'));
+  const slova = normalizuj(otazka).split(' ').filter((s) => s.length >= 3 && !s.startsWith('ne'));
   return slova.some((s) => stejneSlovo(t, s)) ? 'ano' : null;
 }
 
-/** Převede, co hráč řekl, na odpověď. `otazka` pomůže pochopit odpověď slovem z otázky. Vrací null, když nerozumí. */
-export function rozpoznejOdpoved(texty: string[], otazka = ''): Odpoved | null {
-  for (const text of texty) {
-    const t = normalizuj(text);
-    if (!t || slov(t) > MAX_SLOV) continue;
+function rozeber(t: string, otazka: string): { odpoved: Odpoved; silna: boolean } | null {
+  if (!t) return null;
+  const n = slov(t);
+  if (n <= MAX_SLOV) {
     // zápor a "nevím" mají přednost: "neumí" je ne, i když "umí" je v otázce
-    for (const [odpoved, vzor] of VZORY) if (odpoved !== 'ano' && odpoved !== 'mozna' && vzor.test(t)) return odpoved;
+    for (const [odpoved, vzor] of VZORY) if (odpoved !== 'ano' && odpoved !== 'mozna' && vzor.test(t)) return { odpoved, silna: true };
     const o = ozvena(t, otazka);
-    if (o) return o;
-    for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return odpoved;
+    if (o) return { odpoved: o, silna: true };
+    for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return { odpoved, silna: true };
+    for (const [odpoved, vzor] of SLABE) if (vzor.test(t)) return { odpoved, silna: false };
+    return null;
   }
+  // delší přepis: konec otázky z reproduktoru nebo hovor, za kterým hráč odpověděl
+  if (n > MAX_SLOV_S_ODPOVEDI_NA_KONCI) return null;
+  const posledni = t.slice(t.lastIndexOf(' ') + 1);
+  for (const [odpoved, vzor] of VZORY) if (vzor.test(posledni)) return { odpoved, silna: false };
   return null;
+}
+
+/**
+ * Převede, co hráč řekl, na odpověď. `otazka` pomůže pochopit odpověď slovem z otázky.
+ * Vrací null, když nerozumí.
+ * Projde všechny varianty přepisu: jasná odpověď v kterékoli z nich má přednost
+ * před slabou ("je") v té nejpravděpodobnější.
+ */
+export function rozpoznejOdpoved(texty: string[], otazka = ''): Odpoved | null {
+  let slaba: Odpoved | null = null;
+  for (const text of texty) {
+    const r = rozeber(normalizuj(text), otazka);
+    if (!r) continue;
+    if (r.silna) return r.odpoved;
+    slaba ??= r.odpoved;
+  }
+  return slaba;
 }
 
 /** Kolik výpadků rozpoznávání za sebou se přečká, než poslech skončí. */
