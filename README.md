@@ -9,6 +9,9 @@ Hraj na **https://tomaas-zeman.github.io/animal-guesser/**
 
 - **Databáze** [`src/data/zvirata.json`](src/data/zvirata.json): otázky a zvířata. U každého zvířete je
   pro vlastnost pravděpodobnost odpovědi „ano“ (0 až 1), chybějící vlastnost znamená 0.
+  U skupin, kde to dává smysl, jsou konkrétní druhy (hadi: užovka, zmije, kobra, chřestýš, krajta,
+  hroznýš, anakonda; kočkovité šelmy, medvědi, žraloci, velryby, papoušci, sovy, žáby…) a otázky,
+  které je rozliší (kápě, chrastí, škrtí, chocholka, péřová ouška, žije v horách…).
 - **Hádání** [`src/game/engine.ts`](src/game/engine.ts): místo pevného rozhodovacího stromu
   se pravděpodobnosti zvířat po každé odpovědi přepočítají (Bayes) a další otázka je ta s největším
   informačním ziskem. Jedna špatná odpověď proto zvíře nevyřadí, jen ho odsune. „Nevím“ nic nemění,
