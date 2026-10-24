@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pauzaZa, rozdelNaVety } from '../rec/mluveni';
 import { VYRAZY } from './emoce';
-import { LISKA, ROBOT, SOVA, ZABAK, type Hlasky } from './hlasky';
+import { BANAN, LISKA, ROBOT, SOVA, ZABAK, type Hlasky } from './hlasky';
 import { JISTOTA_BLIZKO, JISTOTA_TUSENI, Projev, nahodne, type PoOdpovedi } from './projev';
 
 const VSECHNY: [string, Hlasky][] = [
@@ -9,6 +9,7 @@ const VSECHNY: [string, Hlasky][] = [
   ['robot', ROBOT],
   ['sova', SOVA],
   ['žabák', ZABAK],
+  ['banán', BANAN],
 ];
 
 const obycejna: PoOdpovedi = { odpoved: 'ano', pocetOtazek: 5, ocekavaneAno: 0.5, jistotaPred: 0.05, jistotaPo: 0.06 };

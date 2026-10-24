@@ -29,7 +29,7 @@ Hraj na **https://tomaas-zeman.github.io/animal-guesser/**
   [`databaze.test.ts`](src/game/databaze.test.ts) hlídá, že zvířata dodržují pravidla a dají se od sebe rozlišit.
 - **Řeč** [`src/rec/`](src/rec): mluvení přes `speechSynthesis` (cs-CZ), poslech přes Web Speech API
   (Chrome, Edge, Safari). Tlačítka fungují vždy.
-- **Postavičky** [`src/postavicky/`](src/postavicky): liška Lili, robot Robík, sova Soňa a žabák Kvak,
+- **Postavičky** [`src/postavicky/`](src/postavicky): liška Lili, robot Robík, sova Soňa, žabák Kvak a banán Bohouš,
   poskládaní z 3D tvarů v React Three Fiber (three.js).
 
 ## Vývoj

@@ -79,7 +79,7 @@ export default function App() {
       if (!mluveniDostupne) return;
       const hlas = ceskyHlas();
       if (!hlas) setUpozorneni('Prohlížeč nemá český hlas, postavička může mluvit s přízvukem. Nejlíp mluví v prohlížeči Edge.');
-      else if (!maHlas('muz')) setUpozorneni('Prohlížeč nemá český mužský hlas, Robík a Kvak proto mluví upraveným ženským hlasem. Mužský hlas má třeba Microsoft Edge.');
+      else if (!maHlas('muz')) setUpozorneni('Prohlížeč nemá český mužský hlas, Robík, Kvak a Bohouš proto mluví upraveným ženským hlasem. Mužský hlas má třeba Microsoft Edge.');
       else if (!jePrirozeny(hlas)) setUpozorneni('Tip: nejpřirozeněji postavičky mluví v prohlížeči Microsoft Edge.');
     }, 1500);
     return () => clearTimeout(t);

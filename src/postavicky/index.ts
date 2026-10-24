@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Hlas } from '../rec/mluveni';
-import { LISKA, ROBOT, SOVA, ZABAK, type Hlasky } from './hlasky';
+import { Banan } from './Banan';
+import { BANAN, LISKA, ROBOT, SOVA, ZABAK, type Hlasky } from './hlasky';
 import { Liska } from './Liska';
 import { Robot } from './Robot';
 import { Sova } from './Sova';
@@ -58,6 +59,17 @@ export const POSTAVICKY: Postavicka[] = [
     hlas: { pitch: 0.92, rate: 1.0, pohlavi: 'muz', nahrada: { pitch: 0.6, rate: 1.05 } },
     Komponenta: Zabak,
     hlasky: ZABAK,
+  },
+  {
+    id: 'banan',
+    jmeno: 'Banán Bohouš',
+    popis: 'Mluvící banán a komik. Hádá zvířata a sype vtipy jak z rukávu.',
+    barva: '#d99a00',
+    pozadi: ['#fff6c4', '#ffd45a'],
+    // bystrý vypravěč vtipů: o chlup vyšší a rychlejší hlas
+    hlas: { pitch: 1.05, rate: 1.08, pohlavi: 'muz', nahrada: { pitch: 0.7, rate: 1.1 } },
+    Komponenta: Banan,
+    hlasky: BANAN,
   },
 ];
 
