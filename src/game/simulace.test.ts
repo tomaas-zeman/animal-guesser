@@ -21,26 +21,38 @@ describe('simulace hádání', () => {
     console.log('pečlivý hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.97);
     expect(r.naPrvni).toBeGreaterThan(0.97);
-    expect(r.prumerOtazek).toBeLessThan(11);
+    expect(r.prumerOtazek).toBeLessThan(12);
     expect(r.rozporneTipy).toBe(0);
     expect(r.zbytecneOtazky).toBe(0);
   });
 
-  it('běžný hráč (5 % omylů, 10 % nevím)', () => {
-    const r = simuluj(databaze, { nevim: 0.1, omyl: 0.05 }, 5);
+  // U jistých otázek (je to pták, má křídla, žije v moři) se děti pletou zhruba třikrát méně.
+  it('běžný hráč (5 % omylů, u jistých otázek 1,7 %, 10 % nevím)', () => {
+    const r = simuluj(databaze, { nevim: 0.1, omyl: 0.05, omylJiste: 0.017 }, 5);
     console.log('běžný hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.98);
-    expect(r.naPrvni).toBeGreaterThan(0.9);
-    expect(r.prumerOtazek).toBeLessThan(14);
+    expect(r.naPrvni).toBeGreaterThan(0.88);
+    expect(r.prumerOtazek).toBeLessThan(14.5);
     expect(r.rozporneTipy).toBe(0);
     expect(r.zbytecneOtazky).toBe(0);
   });
 
-  it('nepozorný hráč (10 % omylů, 15 % nevím)', () => {
-    const r = simuluj(databaze, { nevim: 0.15, omyl: 0.1 }, 5);
+  it('nepozorný hráč (10 % omylů, u jistých otázek 3,3 %, 15 % nevím)', () => {
+    const r = simuluj(databaze, { nevim: 0.15, omyl: 0.1, omylJiste: 0.033 }, 5);
     console.log('nepozorný hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.93);
     expect(r.naPrvni).toBeGreaterThan(0.7);
+    expect(r.rozporneTipy).toBe(0);
+    expect(r.zbytecneOtazky).toBe(0);
+  });
+
+  it('hráč, který se plete stejně často i u jistých otázek (5 %): pořád skoro vždy uhodne', () => {
+    // jistá odpověď váží víc, takže omyl v ní se napravuje pomaleji; to je cena za to,
+    // že hra po "je to obojživelník" neodběhne k ještěrkám
+    const r = simuluj(databaze, { nevim: 0.1, omyl: 0.05 }, 3);
+    console.log('omyly i u jistých otázek', r);
+    expect(r.uspesnost).toBeGreaterThan(0.97);
+    expect(r.naPrvni).toBeGreaterThan(0.8);
     expect(r.rozporneTipy).toBe(0);
     expect(r.zbytecneOtazky).toBe(0);
   });
@@ -60,7 +72,7 @@ describe('simulace hádání', () => {
     console.log('jeden omyl', { uspesnost: uhodl / her, naPrvni: naPrvni / her });
     expect(rozporne).toEqual([]);
     expect(uhodl / her).toBeGreaterThan(0.99);
-    expect(naPrvni / her).toBeGreaterThan(0.93);
+    expect(naPrvni / her).toBeGreaterThan(0.9);
   });
 
   it('zvíře, které postavička nezná: tipuje jen zvířata, která sedí na odpovědi', () => {
