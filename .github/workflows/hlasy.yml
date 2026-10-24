@@ -1,12 +1,12 @@
 name: Namluvit hlasy
 
 # Namluví chybějící věty postaviček: se secretem TTS_API_KEY hlasy Google Chirp 3 HD,
-# bez něj neuronovými hlasy Microsoft Edge (zdarma, bez klíče). Hlasy jsou v scripts/hlasy-tts.json.
-# a nahrávky commitne do větve, na které běží. Každá postavička běží ve vlastním jobu
+# bez něj neuronovými hlasy Microsoft Edge (zdarma, bez klíče). Hlasy jsou v scripts/hlasy-tts.json. Nahrávky
+# commitne do větve, na které běží. Každá postavička běží ve vlastním jobu
 # (jiný stroj, souběžně). Namlouvá se jen rozdíl: věty, které nahrávku ještě nemají;
 # nahrávky vět, které už hra neříká, se smažou.
-# Spouští se ručně (Actions → Namluvit hlasy → Run workflow) a samo, když se v master
-# změní hlášky, otázky nebo nastavení hlasů.
+# Spouští se jen ručně (Actions → Namluvit hlasy → Run workflow), nic jiného ho nespustí.
+# Věty bez nahrávky hra řekne syntézou prohlížeče.
 on:
   workflow_dispatch:
     inputs:
@@ -18,12 +18,6 @@ on:
         description: 'Namluvit znovu i to, co už nahrané je (např. po změně hlasu)'
         type: boolean
         default: false
-  push:
-    branches: [master]
-    paths:
-      - src/postavicky/hlasky.ts
-      - src/data/zvirata.json
-      - scripts/hlasy-tts.json
 
 permissions:
   contents: write
