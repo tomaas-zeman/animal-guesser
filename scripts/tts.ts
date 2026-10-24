@@ -10,7 +10,7 @@
 //   ELEVENLABS_API_KEY=… npm run hlasy:tts -- elevenlabs --postava banan --limit 20
 //
 // Přepínače: --postava <id> (jinak všechny), --limit <n> (na zkoušku), --prepsat (i už nahrané),
-// --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
+// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou. --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -186,7 +186,7 @@ for (const postava of postavy) {
       }
     }
   };
-  await Promise.all(Array.from({ length: sluzba === 'edge' ? 2 : 4 }, pracovnik));
+  await Promise.all(Array.from({ length: Number(process.env.TTS_SOUBEZNE) || (sluzba === 'edge' ? 2 : 4) }, pracovnik));
 }
 
 console.log(`Hotovo: ${celkem} nahrávek, ${znaku} znaků.${values.zkouska ? ' (jen zkouška, nic se nenamluvilo)' : ''}`);

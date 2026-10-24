@@ -1,8 +1,11 @@
 name: Namluvit hlasy
 
 # Namluví chybějící věty postaviček neuronovými hlasy Microsoft Edge (zdarma, bez klíče)
-# a nahrávky commitne do větve, na které běží. Spouští se ručně (Actions → Namluvit hlasy → Run workflow)
-# a samo, když se v master změní hlášky, otázky nebo nastavení hlasů.
+# a nahrávky commitne do větve, na které běží. Každá postavička běží ve vlastním jobu
+# (jiný stroj, souběžně). Namlouvá se jen rozdíl: věty, které nahrávku ještě nemají;
+# nahrávky vět, které už hra neříká, se smažou.
+# Spouští se ručně (Actions → Namluvit hlasy → Run workflow) a samo, když se v master
+# změní hlášky, otázky nebo nastavení hlasů.
 on:
   workflow_dispatch:
     inputs:
@@ -28,42 +31,68 @@ permissions:
 
 concurrency:
   group: hlasy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   namluvit:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postava: [liska, robot, sova, zabak, banan]
     steps:
       - uses: actions/checkout@v4
+        if: inputs.postava == '' || inputs.postava == matrix.postava
       - uses: actions/setup-node@v4
+        if: inputs.postava == '' || inputs.postava == matrix.postava
         with:
           node-version: 22
           cache: npm
       - uses: actions/setup-python@v5
+        if: inputs.postava == '' || inputs.postava == matrix.postava
         with:
           python-version: '3.12'
-      - run: npm ci
-      - run: pip install --upgrade edge-tts
-      # rychlá kontrola, že Edge z runneru odpovídá; jinak nemá cenu namlouvat tisíce vět
-      - name: Ověřit edge-tts
+      - name: Instalace
+        if: inputs.postava == '' || inputs.postava == matrix.postava
         run: |
-          pip show edge-tts | head -2
-          edge-tts --list-voices | grep -i cs-CZ || echo "seznam hlasů nedostupný"
-          ok=0
-          for args in "--voice en-US-AriaNeural --text Hello" "--voice cs-CZ-VlastaNeural --text Ahoj" "--voice cs-CZ-AntoninNeural --pitch=+5Hz --rate=+5% --text Ahoj"; do
-            echo "::group::$args"
-            if edge-tts $args --write-media /tmp/t.mp3 && [ -s /tmp/t.mp3 ]; then echo "OK $(stat -c%s /tmp/t.mp3) B"; ok=1; else echo "SELHALO"; fi
-            rm -f /tmp/t.mp3
-            echo "::endgroup::"
-          done
-          [ $ok = 1 ]
+          npm ci
+          pip install --upgrade edge-tts
       - name: Namluvit
+        if: inputs.postava == '' || inputs.postava == matrix.postava
         env:
-          POSTAVA: ${{ inputs.postava }}
           PREPSAT: ${{ inputs.prepsat }}
-        run: npm run hlasy:tts -- edge ${POSTAVA:+--postava "$POSTAVA"} $([ "$PREPSAT" = "true" ] && echo --prepsat)
+        run: npm run hlasy:tts -- edge --postava ${{ matrix.postava }} $([ "$PREPSAT" = "true" ] && echo --prepsat)
+      # i po chybě se uloží, co se stihlo namluvit
+      - uses: actions/upload-artifact@v4
+        if: always() && (inputs.postava == '' || inputs.postava == matrix.postava)
+        with:
+          name: hlasy-${{ matrix.postava }}
+          path: public/hlasy/${{ matrix.postava }}/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  commit:
+    needs: namluvit
+    # i když se některá postavička nepovedla, ostatní se uloží
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hlasy-*
+          path: /tmp/hlasy
       - name: Commit nahrávek
         id: commit
         run: |
+          # složka postavičky se nahradí celá, aby zmizely i smazané nahrávky
+          for d in /tmp/hlasy/hlasy-*; do
+            [ -d "$d" ] || continue
+            p=${d##*/hlasy-}
+            rm -rf "public/hlasy/$p"
+            mkdir -p "public/hlasy/$p"
+            cp "$d"/* "public/hlasy/$p/"
+          done
           git add public/hlasy
           if git diff --cached --quiet; then echo "Nic nového."; exit 0; fi
           git config user.name "github-actions[bot]"
