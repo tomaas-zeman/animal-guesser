@@ -97,7 +97,7 @@ function Balik() {
   );
 }
 
-export function Vojtaca(props: PostavickaProps) {
+export function Vojtacu(props: PostavickaProps) {
   const { telo, hlava, oci, pusa, usmev, oboci } = useAnimace(props);
   const levaRuka = useRef<THREE.Group>(null);
   const pravaRuka = useRef<THREE.Group>(null);
