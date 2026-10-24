@@ -7,17 +7,20 @@ import { DOPLNKY } from './postavicky/hlasky';
 import { Projev, type Replika } from './postavicky/projev';
 import { maNahravky } from './hlasy/prehravac';
 import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
-import { jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
+import { hracDomluvil, jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import {
   MAX_PORUCH,
+  bezNadavek,
   jeHovorOkolo,
   jeNesrozumitelne,
   jePorucha,
   jeStart,
+  KRATKY_HLAS,
   jeZopakuj,
   pauzaPoPoruse,
   poslechDostupny,
   poslouchej,
+  rozpoznejNadavku,
   rozpoznejOdpoved,
   type Slyseni,
 } from './rec/poslech';
@@ -122,13 +125,13 @@ export default function App() {
    */
   const zaznamenej = (s: Slyseni, hlasitost: number) => {
     const prepisy = (s.prepisy ?? []).map((p) => `${p.final ? '' : '~'}„${p.text}“ ${p.jistota ? p.jistota.toFixed(2) : ''}`).join(' | ');
-    const radek = `${(s.trvani / 1000).toFixed(1)}s ${s.chyba ?? ''}${s.zkraceno ? ' zkráceno' : ''} hl. ${hlasitost.toFixed(3)} → ${rozpoznejOdpoved(s.texty) ?? '?'}: ${prepisy || '—'}`;
+    const radek = `${(s.trvani / 1000).toFixed(1)}s ${s.chyba ?? ''}${s.zkraceno ? ' zkráceno' : ''} hl. ${hlasitost.toFixed(3)} → ${rozpoznejNadavku(s.texty) ? 'nadávka' : (rozpoznejOdpoved(bezNadavek(s.texty)) ?? '?')}: ${prepisy || '—'}${s.texty.length ? ` ⇒ ${s.texty.join(' | ')}` : ''} [${(s.udalosti ?? []).join(' ')}]`;
     console.debug('[poslech]', radek, s);
     setZaznamy((z) => [radek, ...z].slice(0, 8));
   };
 
   const poslouchejPorad = useCallback(
-    async (gen: number, zpracuj: (texty: string[], hlasitost: number) => Promise<boolean>) => {
+    async (gen: number, zpracuj: (texty: string[], hlasitost: number, kratkyHlas: boolean) => Promise<boolean>) => {
       let poruch = 0;
       let posledniZvuk = Date.now();
       try {
@@ -136,7 +139,7 @@ export default function App() {
           setPosloucha(true);
           setPripraveno(false);
           zacniUsek();
-          const p = poslouchej(() => gen === generace.current && setPripraveno(true));
+          const p = poslouchej(() => gen === generace.current && setPripraveno(true), hracDomluvil);
           zrusPoslech.current = p.zrus;
           let s: Slyseni;
           try {
@@ -153,16 +156,16 @@ export default function App() {
             return;
           }
           if (gen !== generace.current || !nastaveniRef.current.mikrofon) return;
-          if (ladeni && (s.prepisy?.length || s.chyba)) zaznamenej(s, spickaUseku());
+          if (ladeni) zaznamenej(s, spickaUseku());
 
           // něco zaznělo, ale bez slov: když to byl hlas hráče, ať to zopakuje
           const hlasitost = spickaUseku();
-          const hracMluvil = s.chyba === 'no-match' || (meriSe() && referencniHlasitost() !== null && jeHrac(hlasitost));
+          const hracMluvil = s.chyba === 'no-match' || s.chyba === KRATKY_HLAS || (meriSe() && referencniHlasitost() !== null && jeHrac(hlasitost));
           if (jeNesrozumitelne(s) && hracMluvil) {
             poruch = 0;
             posledniZvuk = Date.now();
             setPosloucha(false);
-            if (await zpracuj([], hlasitost)) return;
+            if (await zpracuj([], hlasitost, s.chyba === KRATKY_HLAS)) return;
             continue;
           }
 
@@ -183,7 +186,7 @@ export default function App() {
           poruch = 0;
           posledniZvuk = Date.now();
           setPosloucha(false);
-          if (await zpracuj(s.texty, hlasitost)) return;
+          if (await zpracuj(s.texty, hlasitost, false)) return;
         }
       } finally {
         if (gen === generace.current) setPosloucha(false);
@@ -197,12 +200,24 @@ export default function App() {
     async (gen: number, jenAnoNe = false) => {
       setSlyseno('');
       let nerozumi = 0;
-      await poslouchejPorad(gen, async (texty, hlasitost) => {
-        const odpoved = rozpoznejOdpoved(texty, posledniOtazka.current);
+      let kratkych = 0;
+      await poslouchejPorad(gen, async (texty, hlasitost, kratkyHlas) => {
+        // nadávka se nepočítá jako odpověď: "nejsi chytrá" není "ne"
+        const nadavka = rozpoznejNadavku(texty, posledniOtazka.current);
+        const odpoved = nadavka ? null : rozpoznejOdpoved(bezNadavek(texty), posledniOtazka.current);
         if (texty.length > 0) {
           // hovor okolo se tiše přeslechne a poslouchá se dál
           if (!jeHrac(hlasitost, odpoved !== null)) {
             setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
+            return false;
+          }
+          if (nadavka) {
+            // vtipně se ohradí a zopakuje otázku
+            setSlyseno(texty[0]);
+            await pockej(premysleni());
+            if (!(await mluv(dejProjev().nadavka(nadavka), gen))) return true;
+            await pockej(PAUZA_MEZI);
+            await mluv({ text: posledniOtazka.current, nalada: 'klid' }, gen);
             return false;
           }
           if (!odpoved && jeHovorOkolo(texty)) {
@@ -215,7 +230,7 @@ export default function App() {
             await mluv(posledniOtazka.current, gen);
             return false;
           }
-        } else setSlyseno('…');
+        } else setSlyseno(kratkyHlas ? '… (něco krátkého, ale bez slov)' : '…');
         if (odpoved && (!jenAnoNe || odpoved === 'ano' || odpoved === 'ne')) {
           kalibruj(hlasitost);
           setZduraznit(false);
@@ -225,8 +240,16 @@ export default function App() {
         nerozumi++;
         setZduraznit(true);
         await pockej(premysleni());
-        // napoví až po několika nezdarech, a krátce, ať to nezdržuje
-        const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ` ${DOPLNKY.napovedaTip}` : ` ${DOPLNKY.napovedaOtazka}`;
+        // Krátké slovo bez přepisu je skoro vždycky "ne", které rozpoznávání nezachytilo:
+        // napoví delší tvar, ten rozpozná spolehlivě. Jinak napoví až po několika nezdarech.
+        const napoveda =
+          kratkyHlas && ++kratkych <= 2
+            ? ` ${DOPLNKY.napovedaDelsi}`
+            : nerozumi % 3 !== 0
+              ? ''
+              : jenAnoNe
+                ? ` ${DOPLNKY.napovedaTip}`
+                : ` ${DOPLNKY.napovedaOtazka}`;
         const r = dejProjev().nerozumim();
         await mluv({ ...r, text: r.text + napoveda }, gen);
         return false;

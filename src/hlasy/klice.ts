@@ -126,7 +126,15 @@ const SKUPINY: Record<keyof Hlasky, string> = {
   omylZnovu: 'Výhra a prohra',
   vzdavam: 'Výhra a prohra',
   nerozumim: 'Nerozumím',
+  nadavka: 'Reakce na nadávky',
+  nadavkaZnovu: 'Reakce na nadávky',
 };
+
+/** Všechny texty jedné položky hlášek: seznam vět, nebo vět podle druhu (i s emocí). */
+export function textyHlasek(hodnota: Hlasky[keyof Hlasky]): string[] {
+  const polozky: unknown[] = Array.isArray(hodnota) ? hodnota : Object.values(hodnota).flat();
+  return polozky.map((p) => (typeof p === 'string' ? p : (p as { text: string }).text));
+}
 
 /** Všechny úseky, které postavička může říct, v pořadí vhodném pro namlouvání. */
 export function vsechnyUseky(postava: string): Usek[] {
@@ -149,9 +157,7 @@ export function vsechnyUseky(postava: string): Usek[] {
   };
 
   for (const k of Object.keys(SKUPINY) as (keyof Hlasky)[]) {
-    const hodnota = h[k];
-    const texty = Array.isArray(hodnota) ? hodnota : Object.values(hodnota).flat();
-    for (const t of texty) pridejText(t, SKUPINY[k]);
+    for (const t of textyHlasek(h[k])) pridejText(t, SKUPINY[k]);
   }
   for (const t of Object.values(DOPLNKY)) pridejText(t, 'Výzvy a nápovědy');
   for (const t of Object.values(databaze.otazky)) pridejText(t, 'Otázky');

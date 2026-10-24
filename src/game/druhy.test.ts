@@ -17,7 +17,7 @@ const SKUPINY: Record<string, string[]> = {
   kytovci: ['Velryba', 'Keporkak', 'Kosatka', 'Delfín'],
   papoušci: ['Papoušek', 'Andulka', 'Kakadu', 'Žako'],
   sovy: ['Sova', 'Výr', 'Sněžná sova', 'Sova pálená'],
-  dravci: ['Orel', 'Sokol', 'Sup'],
+  dravci: ['Orel', 'Sokol', 'Sup', 'Harpyje'],
   jeleni: ['Jelen', 'Srnka', 'Los', 'Sob', 'Daněk'],
   opice: ['Šimpanz', 'Gorila', 'Orangutan', 'Pavián', 'Lemur'],
   hlodavci: ['Myš', 'Potkan', 'Křeček', 'Morče', 'Činčila', 'Kapybara', 'Svišť', 'Dikobraz'],
@@ -30,6 +30,8 @@ const SKUPINY: Record<string, string[]> = {
   lasicovití: ['Kuna', 'Lasice', 'Tchoř', 'Jezevec', 'Vydra'],
   hmyz: ['Včela', 'Čmelák', 'Vosa', 'Šváb', 'Cvrček', 'Kudlanka', 'Vážka', 'Bělásek', 'Můra', 'Roháč', 'Mandelinka',
     'Světluška', 'Ruměnice', 'Blecha'],
+  záludná: ['Kiwi', 'Ptakopysk', 'Ježura', 'Luskoun', 'Okapi', 'Ksukol', 'Nártoun', 'Kasuár', 'Vačice', 'Želvuška', 'Ďas',
+    'Sépie', 'Fosa', 'Dodo'],
   'další drobní': ['Klíště', 'Štír', 'Tarantule', 'Stonožka', 'Mnohonožka', 'Svinka', 'Slimák', 'Pijavice', 'Šnek', 'Pavouk'],
 };
 

@@ -14,6 +14,9 @@ let ctx: AudioContext | null = null;
 let casovac: ReturnType<typeof setInterval> | undefined;
 let spicka = 0;
 let reference: number | null = null;
+/** kolik měření (po 40 ms) v úseku mělo hlasitost hráče, a kdy naposledy */
+let hlasitychVzorku = 0;
+let posledniHlas = 0;
 
 export const mereniDostupne =
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof AudioContext !== 'undefined';
@@ -28,8 +31,10 @@ export async function zapniMereni(): Promise<boolean> {
   if (!mereniDostupne) return false;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      // automatické zesílení by hlasitosti srovnalo, a filtr by nefungoval
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+      // Stejné zpracování zvuku, jaké používá rozpoznávání řeči. Chrome má pro jeden
+      // mikrofon jedno nastavení: vypnuté automatické zesílení tady by ztlumilo i
+      // rozpoznávání a krátké tiché "ne" by pak vůbec nezaznamenalo jako řeč.
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     ctx = new AudioContext();
     const analyzator = ctx.createAnalyser();
@@ -42,6 +47,10 @@ export async function zapniMereni(): Promise<boolean> {
       for (const x of vzorky) suma += x * x;
       const rms = Math.sqrt(suma / vzorky.length);
       if (rms > spicka) spicka = rms;
+      if (reference !== null && rms >= reference * PRAH) {
+        hlasitychVzorku++;
+        posledniHlas = Date.now();
+      }
     }, 40);
     return true;
   } catch {
@@ -61,6 +70,7 @@ export function vypniMereni() {
 /** Začne nový úsek poslechu. */
 export function zacniUsek() {
   spicka = 0;
+  hlasitychVzorku = 0;
 }
 
 /** Nejhlasitější místo od začátku úseku. */
@@ -86,4 +96,17 @@ export function kalibruj(hodnota: number) {
 export function jeHrac(hodnota: number, jasnaOdpoved = false): boolean {
   if (!ctx || reference === null) return true;
   return hodnota >= reference * (jasnaOdpoved ? PRAH_KRATKA : PRAH);
+}
+
+/** Aspoň ~120 ms hlasu, aby to nebylo jen ťuknutí nebo rána. */
+const MIN_VZORKU_HLASU = 3;
+/** Jak dlouhé ticho po hlasu znamená, že hráč domluvil. */
+const TICHO_PO_HLASU = 1200;
+
+/**
+ * Řekl hráč v tomhle úseku něco a pak ztichl? Slouží jako záloha, když
+ * rozpoznávání krátké slovo ("ne") vůbec nezaznamená jako řeč.
+ */
+export function hracDomluvil(ted = Date.now()): boolean {
+  return !!ctx && hlasitychVzorku >= MIN_VZORKU_HLASU && ted - posledniHlas >= TICHO_PO_HLASU;
 }

@@ -2,6 +2,21 @@
 // ze kterých se vybírá tak, aby se stejná věta neopakovala hned po sobě.
 // {z} se nahradí jménem zvířete. Věty s {z} nezačínají, protože jméno je malými písmeny.
 import type { Odpoved } from '../game/engine';
+import type { DruhNadavky } from '../rec/poslech';
+import type { Nalada } from './emoce';
+
+/** Věta s emocí, kterou postavička řekne. */
+export interface Veta {
+  text: string;
+  nalada: Nalada;
+}
+
+// emoce reakcí na nadávky
+const dotcena = (text: string): Veta => ({ text, nalada: 'dotcena' });
+const ohromena = (text: string): Veta => ({ text, nalada: 'prekvapeni' });
+const hrava = (text: string): Veta => ({ text, nalada: 'zvedavost' });
+const sebeironie = (text: string): Veta => ({ text, nalada: 'radost' });
+const posmutnela = (text: string): Veta => ({ text, nalada: 'zklamani' });
 
 export interface Hlasky {
   uvod: string[];
@@ -38,6 +53,13 @@ export interface Hlasky {
   omylZnovu: string[];
   vzdavam: string[];
   nerozumim: string[];
+  /**
+   * Hráč jí nadává (hloupá, hluchá, drž hubu…). Odpoví vtipně a laskavě,
+   * nikdy hrubě a nikdy neuráží zpátky. Pak zopakuje otázku.
+   */
+  nadavka: Record<DruhNadavky, Veta[]>;
+  /** nadává pořád dokola: vezme to s nadhledem */
+  nadavkaZnovu: string[];
 }
 
 /** Věty, které hra přidává k hláškám. Postavičky je říkají svým hlasem, proto mají vlastní nahrávky. */
@@ -50,6 +72,8 @@ export const DOPLNKY = {
   napovedaOtazka: 'Řekni ano, ne, nebo nevím.',
   /** nápověda u tipu */
   napovedaTip: 'Řekni ano, nebo ne.',
+  /** krátké slovo bez přepisu bývá nezachycené „ne“ */
+  napovedaDelsi: 'Řekni to delší, třeba: není.',
 };
 
 export const LISKA: Hlasky = {
@@ -84,6 +108,32 @@ export const LISKA: Hlasky = {
     'Tohle je na mě moc těžké! Vzdávám se. Jaké zvíře to bylo?',
     'Ach jo, tentokrát jsem prohrála. Vzdávám se. Prozradíš mi, co to bylo?',
   ],
+  nadavka: {
+    hloupost: [
+      dotcena('Hloupá? Já? Hmpf! Liška je přece mazaná, to ví každé malé dítě.'),
+      sebeironie('Hloupá liška? To je jako suchá voda. Taková neexistuje!'),
+      dotcena('Tak to mě urazilo až do špičky ocásku. Ale odpouštím ti.'),
+      hrava('Uvidíme, kdo se bude divit, až tvoje zvíře uhodnu!'),
+      posmutnela('Au, to bylo ošklivé. Ale lišky se nezlobí dlouho.'),
+      hrava('Blbá liška? Hloupá je leda slepice!'),
+    ],
+    hluchota: [
+      dotcena('Hluchá? Já mám největší uši v celém lese!'),
+      sebeironie('Možná mi do ucha vlezl brouček. Ale už je venku!'),
+      hrava('Slyším i myšku pod sněhem. Ale klidně mluv nahlas, ať mi nic neuteče.'),
+      dotcena('Moje uši jsou v pořádku. Hmpf. Jen jsem je měla chvilku sklopené.'),
+      sebeironie('Hluchá? Já slyším i myš, jak kýchne. Ale tvoje slovo jsem asi přeslechla.'),
+    ],
+    hrubost: [
+      ohromena('Ty jo! Tak takhle se s liškou nemluví!'),
+      dotcena('Hmpf! Takové ošklivé slovo do mého lesa nepatří.'),
+      hrava('Zkusíme to radši hezky, jo? Lišky mají rády hezká slova.'),
+      dotcena('Ajaj, to mi zježilo srst. Ale dobře, hrajeme dál.'),
+      posmutnela('Au, to bolí víc než trn v tlapce! Tak mi raději odpověz.'),
+      hrava('Tak to si zapíšu do knížky drzostí. A hádám dál!'),
+    ],
+  },
+  nadavkaZnovu: ['Ty mě dneska ale zkoušíš! Nevadí, jsme pořád kamarádi.', 'Hmm, dneska je to s tebou divoké. Ale hádat budu dál!'],
   nerozumim: [
     'Cože?',
     'Promiň?',
@@ -125,6 +175,32 @@ export const ROBOT: Hlasky = {
     'Chyba. Neznámé zvíře. Vzdávám se. Jaké zvíře to bylo?',
     'Píííp… Baterka myšlenek je vybitá. Vzdávám se. Co to bylo?',
   ],
+  nadavka: {
+    hloupost: [
+      dotcena('Chyba. Slovo hloupý v mé databázi není. Mám tam jen chytré věci.'),
+      sebeironie('Hloupý? Můj procesor má miliardu tranzistorů. Dobře, některé zrovna spí. Píp.'),
+      dotcena('Detekuji urážku. Spouštím režim uraženého robota. Hmpf. Hotovo, už se nezlobím.'),
+      hrava('Aktualizuji software chytrosti… Hotovo. Teď jsem ještě chytřejší.'),
+      posmutnela('Bzzz. To zabolelo v obvodech. Ale roboti odpouštějí rychle.'),
+      hrava('Analyzuji… tvoje nadávka má nízké skóre. Zkus odpověď.'),
+    ],
+    hluchota: [
+      dotcena('Moje mikrofony jsou v pořádku. Zkontroloval jsem je. Dvakrát.'),
+      sebeironie('Hluchý? Možná mám v uších prach. Spouštím vysavač. Vrrr. Hotovo!'),
+      hrava('Zvyšuji citlivost uší na maximum. Teď slyším i mravence kýchat.'),
+      dotcena('Píp. Slyším výborně. Možná jen potřebuju nové baterky do uší.'),
+      sebeironie('Hluchý? Mám šestnáct mikrofonů! Asi je čas na čištění uší. Bzzz.'),
+    ],
+    hrubost: [
+      ohromena('Píp?! Tohle slovo není v mém slovníku slušných slov!'),
+      dotcena('Varování! Hrubé slovo zachyceno. Mažu ho z paměti. Smazáno.'),
+      hrava('Bzzz. Roboti mají rádi hezká slova. Zkusíme to znovu?'),
+      dotcena('Moje kontrolka zčervenala. To je robotí uražení. Ale už to přešlo.'),
+      hrava('Urážka zaznamenána. Uložena do koše. Píp.'),
+      dotcena('Moje obvody se urazily. Restartuji dobrou náladu. Píp.'),
+    ],
+  },
+  nadavkaZnovu: ['Upozornění: počet urážek stoupá. Ale přátelství s tebou nevypínám.', 'Píp. Zapnul se ti zlobicí režim? Já pokračuji v hádání.'],
   nerozumim: [
     'Píp? Znovu.',
     'Nerozpoznáno.',
@@ -165,6 +241,33 @@ export const SOVA: Hlasky = {
     'Hú hú, tohle v mých knížkách není. Vzdávám se. Jaké zvíře to bylo?',
     'Tentokrát moudrost nestačila. Vzdávám se. Co to bylo za zvíře?',
   ],
+  nadavka: {
+    hloupost: [
+      dotcena('Hú! Hloupá sova? To jsem ve svých knihách ještě nečetla!'),
+      sebeironie('Inu, i moudrá sova si někdy nasadí brýle naopak. Ale hloupá nejsem.'),
+      dotcena('Hmpf. Sovy jsou znakem moudrosti. To si zapiš za uši.'),
+      hrava('Hú hú, uvidíme, kdo bude koukat, až to zvíře uhodnu.'),
+      posmutnela('Ach, to mě mrzí. Ale moudrá sova odpouští.'),
+      ohromena('Tak to by mi ani výr neřekl! Pojďme hádat dál.'),
+    ],
+    hluchota: [
+      dotcena('Hluchá? Sova slyší i myšku, jak šustí v trávě!'),
+      sebeironie('Možná mám uši zarostlé peřím. Hned si je pročešu.'),
+      hrava('Hú? Aha, to byl vtip. Slyším moc dobře, jen jsem se zamyslela.'),
+      dotcena('Moje uši jsou v pořádku. To spíš se mi zamlžily brýle.'),
+      dotcena('Hluchá? Já slyším i šustot listí. Ale mluv trochu nahlas, ano?'),
+      hrava('Hú, nasadím si silnější brýle. A ty mi odpověz pěkně.'),
+    ],
+    hrubost: [
+      ohromena('Hú! Takové slovo v mé knihovně nemám!'),
+      dotcena('Inu, slušnost je taky moudrost. Zkusíme to hezky?'),
+      dotcena('Hmpf. To mi načepýřilo peří. Ale dobře, pokračujme.'),
+      hrava('Hú hú, tohle slovo si do knížky nezapíšu. Hrajeme dál.'),
+      hrava('Hú hú! Moudrá sova si nadávky nebere k srdci.'),
+      dotcena('Ve všech mých knížkách píšou, že nadávat se nemá. Hú.'),
+    ],
+  },
+  nadavkaZnovu: ['Hú hú, ty mě dneska zkoušíš. Ale moudrá sova má trpělivost.', 'Inu, zlobit se nebudu. Radši hádám dál.'],
   nerozumim: [
     'Hú?',
     'Prosím?',
@@ -205,6 +308,32 @@ export const ZABAK: Hlasky = {
     'Kvák, to nevím. Vzdávám se. Jaké zvíře to bylo?',
     'Žbluňk… tohle neznám ani z rybníka. Vzdávám se. Co to bylo?',
   ],
+  nadavka: {
+    hloupost: [
+      dotcena('Kvák! Hloupý? Já jsem princ! Princové jsou chytří, to je v každé pohádce.'),
+      sebeironie('Hloupý žabák? No, jednou jsem chtěl spolknout svou korunku. Ale jinak jsem chytrý!'),
+      dotcena('Hmpf! Korunka se mi urazila. Ale já ne, kvák.'),
+      hrava('Uvidíme, kdo bude koukat, až to zvíře uhodnu. Kvák!'),
+      posmutnela('Žbluňk. To bylo ošklivé. Ale žabáci se nezlobí dlouho.'),
+      ohromena('Kvák! Tak to mě ještě žádná princezna nenazvala!'),
+    ],
+    hluchota: [
+      sebeironie('Hluchý? Asi mám vodu v uších. Žbluňk, vyklepáno!'),
+      dotcena('Já slyším i komára na druhém konci rybníka!'),
+      hrava('Kvák? Jasně že slyším. Jen jsem chvilku lovil mouchu.'),
+      sebeironie('Žabáci mají uši schované. Ale fungují, slibuju!'),
+    ],
+    hrubost: [
+      ohromena('Kvák?! Tak takhle se s princem nemluví!'),
+      hrava('Takové slovo patří na dno rybníka. Žbluňk, a je tam.'),
+      dotcena('Moje korunka se z toho zamračila. Zkusíme to hezky, kvák?'),
+      sebeironie('Hmpf! Až jsem z toho zezelenal. Teda… já jsem zelený pořád.'),
+      hrava('Za tohle by tě v rybníku poslali spát mezi pulce. Kvák!'),
+      dotcena('Ani čáp mi takhle nenadává. Hádáme dál!'),
+      hrava('Kvák, nadávky si strčím pod leknín. Odpověz mi radši.'),
+    ],
+  },
+  nadavkaZnovu: ['Kvák, ty mě dneska zkoušíš! Ale princ Kvak se nezlobí.', 'Žbluňk, dneska je to s tebou jako bouřka na rybníce. Hádám dál!'],
   nerozumim: [
     'Kvák?',
     'Cože?',
@@ -346,6 +475,32 @@ export const BANAN: Hlasky = {
     'Tak tohle je na mě moc. Vzdávám se, a to je u banánu vzácnost. Jaké zvíře to bylo?',
     'Ach jo, tentokrát jsem uklouzl. Vzdávám se. Prozradíš mi, co to bylo?',
   ],
+  nadavka: {
+    hloupost: [
+      sebeironie('Hloupý? Já jsem banán, mám mozek ze slupky! Ale hádat umím.'),
+      dotcena('Hmpf. Tak to mě urazilo. Až mi zhnědla jedna piha.'),
+      sebeironie('Hloupý banán? Pozor, banány jsou nejchytřejší ovoce. Teda hned po jablkách. A hruškách. No dobře.'),
+      hrava('Tohle si zapíšu do vtipů. Pointu doplním, až to zvíře uhodnu!'),
+      dotcena('Jau, to bylo jako slupka pod nohou. Ale banán se zvedne.'),
+      sebeironie('Blbý banán? Jsem prostě trochu přezrálý.'),
+      posmutnela('Au! Teď mám na sobě černou skvrnu. Ale vtipy mi zůstaly.'),
+    ],
+    hluchota: [
+      sebeironie('Hluchý? Banán nemá uši, a stejně slyším. Zázrak!'),
+      hrava('Cože? Haha, dělám si legraci. Slyším výborně.'),
+      sebeironie('Hluchý? Mám banán v uchu… počkat, já jsem celý banán!'),
+      dotcena('Slyším dobře, jen mi zlobil mikrofon. Ťuk ťuk, zkouška. Funguje!'),
+    ],
+    hrubost: [
+      ohromena('Ty jo! Takovéhle slovo u mě v show neprojde!'),
+      dotcena('Hmpf. Tohle slovo vyhazuju z pódia. A je venku!'),
+      hrava('Ošklivé slovo? Já radši řeknu hezké: banánek. Vidíš, jak to zní líp?'),
+      dotcena('Z toho mi ztuhla slupka. Ale komik musí vydržet hodně.'),
+      ohromena('Takovou kritiku jsem nedostal ani od opice v první řadě!'),
+      hrava('Klid, jsem jenom ovoce. Tak hádáme dál?'),
+    ],
+  },
+  nadavkaZnovu: ['Dneska je tu ale přísné publikum! Nevadí, show pokračuje.', 'Ty mě zkoušíš, viď? Banán vydrží všechno, kromě rozmačkání.'],
   nerozumim: [
     'Cože? Mám banán v uchu.',
     'Promiň?',

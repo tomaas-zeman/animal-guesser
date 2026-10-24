@@ -10,7 +10,7 @@
 //   ELEVENLABS_API_KEY=… npm run hlasy:tts -- elevenlabs --postava banan --limit 20
 //
 // Přepínače: --postava <id> (jinak všechny), --limit <n> (na zkoušku), --prepsat (i už nahrané),
-// --zkouska (jen vypíše, co by se namlouvalo). Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
+// --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -138,7 +138,15 @@ for (const postava of postavy) {
   }
   const slozka = join(koren, 'public', 'hlasy', postava);
   const existujici = new Set(existsSync(slozka) ? readdirSync(slozka).map((s) => s.split('.')[0]) : []);
-  const fronta = vsechnyUseky(postava)
+  const vsechny = vsechnyUseky(postava);
+  // nahrávky vět, které už hra neříká (text se změnil nebo zmizel), se smažou; ostatní zůstanou
+  if (!values.zkouska && limit === Infinity && existsSync(slozka)) {
+    const platne = new Set(vsechny.map((u) => u.id));
+    const stare = readdirSync(slozka).filter((s) => /^[0-9a-f]{8}\./.test(s) && !platne.has(s.split('.')[0]));
+    for (const s of stare) rmSync(join(slozka, s));
+    if (stare.length) console.log(`${postava}: smazáno ${stare.length} nahrávek vět, které už hra neříká`);
+  }
+  const fronta = vsechny
     .filter((u) => values.prepsat || !existujici.has(u.id))
     .slice(0, Math.max(0, limit - celkem));
   console.log(`${postava}: ${fronta.length} vět k namluvení (${h.hlas})`);
