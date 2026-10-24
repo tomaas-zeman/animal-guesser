@@ -200,3 +200,145 @@ export const ZABAK: Hlasky = {
     'Voda v uších. Znovu?',
   ],
 };
+
+export const BANAN: Hlasky = {
+  uvod: [
+    'Ahoj, já jsem banán Bohouš! Mysli si zvíře a já ho uhodnu. A k tomu přidám pár vtipů, zdarma a bez slupky.',
+    'Dobrý den, dámy a pánové, děti i opice! Na pódiu banán Bohouš. Mysli si zvíře!',
+    'Čau, tady Bohouš. Jsem sice trochu křivý, ale hádám rovně. Vymysli si zvíře!',
+    'Ahoj! Víš, proč je banán žlutý? Aby ho bylo vidět, když hádá zvířata. Tak si nějaké mysli!',
+  ],
+  zacatek: [
+    'Tak jdeme na to, loupu první otázku!',
+    'Mikrofon zapnut, slupka napnutá. Začínáme!',
+    'Hádání je moje druhá nejoblíbenější věc. Hned po vtipech.',
+    'Pozor, začíná banánová show!',
+  ],
+  reakce: {
+    ano: [
+      'Výtečně, to se hodí!',
+      'Super, to je ono!',
+      'Aha, to se mi hodí do trsu.',
+      'Výborně, skoro mi zežloutla slupka radostí.',
+      'Jasně, to sedí jako slupka na banánu.',
+      'Mňam, šťavnatá odpověď!',
+      'Ha, to jsem tušil!',
+      'Bezva, zapisuju si to na slupku.',
+    ],
+    ne: [
+      'Ne? Tak to škrtám.',
+      'Dobře, tudy cesta nevede.',
+      'Aha. Ale nevadí, banán se nevzdává.',
+      'Ne? Ani trošku? Tak jinak.',
+      'Jasně, tohle hodím do koše na slupky.',
+      'Hmm, tak tam neuklouznu.',
+      'Dobře, zkusím to z jiné strany banánu.',
+    ],
+    nevim: [
+      'Nevadí, ani já nevím, proč jsem křivý.',
+      'To nic, klidně.',
+      'Pohoda, jedeme dál.',
+      'Nevíš? Já taky ne. Jsme dobrá dvojka.',
+      'V pořádku, tohle přeskočíme.',
+    ],
+    mozna: [
+      'Může být? To je odpověď jako nezralý banán. Ani zelená, ani žlutá.',
+      'Hmm, tak napůl. Jako půlka banánu.',
+      'Aha, něco mezi. Chápu.',
+      'Možná? Tak to si dám k přemýšlení.',
+      'Napůl oloupané, rozumím.',
+    ],
+  },
+  prekvapeni: [
+    'Cože? Tak to mi málem spadla slupka!',
+    'Ty jo! Tak tohle jsem fakt nečekal.',
+    'Páni, z toho jsem celý žlutý! Ale to já jsem vlastně pořád.',
+    'No teda! Tohle mě úplně rozloupalo.',
+    'Ha! Málem jsem uklouzl na vlastní slupce.',
+  ],
+  pokrok: [
+    'Ooo, to mi hodně pomohlo!',
+    'Výborně, teď se mi to krásně loupe.',
+    'Ha, nápad mi dozrává!',
+    'Super odpověď! Dávám jí deset banánů z deseti.',
+  ],
+  tuseni: [
+    'Hmm, už mám takové banánové tušení…',
+    'Něco mi tu začíná dozrávat…',
+    'Moje slupka cítí stopu…',
+  ],
+  blizko: [
+    'Už jsem skoro u cíle, slupka se mi třese napětím!',
+    'Ještě kousek a mám to oloupané!',
+    'Už to skoro vím… jsem zralý na tip!',
+    'Napětí jako před pointou vtipu…',
+  ],
+  dlouho: [
+    'Tohle je ale záludné zvíře! Delší než celý trs banánů.',
+    'No teda, z tohohle mi naskakují hnědé pihy.',
+    'Ty mi to dáváš! Ale banán se nevzdává, jenom se trochu ohne.',
+    'Víš, proč banán chodí k doktorovi? Protože ho loupe v zádech. A mě už z toho přemýšlení taky.',
+  ],
+  prechod: [
+    'A teď…',
+    'Tak schválně.',
+    'Další otázka, prosím bubny!',
+    'Řekni mi…',
+    'A co tohle?',
+  ],
+  tip: [
+    'Mám to! Je to {z}?',
+    'Banánová intuice říká… {z}?',
+    'Tipuju, že je to {z}. Trefa?',
+    'Bubny, prosím! Je to {z}?',
+  ],
+  tipJisty: [
+    'Vsadím celý trs banánů, že je to {z}!',
+    'Jasná věc, tohle je {z}!',
+    'Na rovinu, i když jsem křivý: je to {z}!',
+  ],
+  tipNejisty: [
+    'Hmm, zkusím to naslepo… není to {z}?',
+    'Trochu tápu, ale… je to {z}?',
+    'Risknu to, i kdybych měl uklouznout. Je to {z}?',
+  ],
+  vyhra: [
+    'Hurá, uhodl jsem! Potlesk pro banána!',
+    'Jupí! Banán je prostě chytré ovoce!',
+    'Trefa! Tohle si zaslouží banánový koláč.',
+  ],
+  vyhraRychla: [
+    'Ha, to bylo rychlejší než oloupat banán!',
+    'Hotovo raz dva! Na mě si musíš vymyslet něco těžšího.',
+  ],
+  vyhraTezka: [
+    'Uf, to dalo práci! Ale nakonec jsem to oloupal!',
+    'Konečně! Bylo to těžké jako banán z olova. Ale uhodl jsem!',
+  ],
+  znovu: [
+    'Dáme další kolo? Vtipů mám ještě celý trs.',
+    'Zahrajeme si ještě?',
+    'Hrajeme znovu? Slibuju nové vtipy!',
+  ],
+  omyl: [
+    'Vedle? Tak to jsem uklouzl na slupce. Hádám dál!',
+    'Ajaj, to nebylo ono. Ale banán se jen tak nevzdá.',
+    'Hups, netrefil jsem se. Nevadí, loupu dál.',
+  ],
+  omylZnovu: [
+    'Zase vedle? Z toho jsem úplně rozmačkaný!',
+    'Ach jo, už mi z toho hnědne slupka. Ale ptám se dál.',
+    'Tohle je ale záhada! Ještě že mám smysl pro humor.',
+  ],
+  vzdavam: [
+    'Tak tohle je na mě moc. Vzdávám se, a to je u banánu vzácnost. Jaké zvíře to bylo?',
+    'Ach jo, tentokrát jsem uklouzl. Vzdávám se. Prozradíš mi, co to bylo?',
+  ],
+  nerozumim: [
+    'Cože? Mám banán v uchu.',
+    'Promiň?',
+    'Ještě jednou, prosím?',
+    'Hm? To mi uteklo.',
+    'Nerozuměl jsem, zopakuješ to?',
+  ],
+};
