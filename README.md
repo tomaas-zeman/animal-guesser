@@ -27,8 +27,8 @@ Hraj na **https://tomaas-zeman.github.io/animal-guesser/**
 - **Simulace** [`src/game/simulace.test.ts`](src/game/simulace.test.ts) odehraje stovky her s hráči,
   kteří se občas spletou, a hlídá úspěšnost, tipy v rozporu s odpověďmi a zbytečné otázky.
   [`databaze.test.ts`](src/game/databaze.test.ts) hlídá, že zvířata dodržují pravidla a dají se od sebe rozlišit.
-- **Řeč** [`src/rec/`](src/rec): mluvení přes `speechSynthesis` (cs-CZ), poslech přes Web Speech API
-  (Chrome, Edge, Safari). Tlačítka fungují vždy.
+- **Řeč** [`src/rec/`](src/rec): postavičky mluví předem namluvenými nahrávkami (viz níže), co nahrané není,
+  řekne `speechSynthesis` (cs-CZ). Poslech přes Web Speech API (Chrome, Edge, Safari). Tlačítka fungují vždy.
 - **Postavičky** [`src/postavicky/`](src/postavicky): liška Lili, robot Robík, sova Soňa, žabák Kvak a banán Bohouš,
   poskládaní z 3D tvarů v React Three Fiber (three.js).
 
@@ -47,3 +47,24 @@ Přidej `?debug=1` do adresy a uvidíš, která zvířata postavička zrovna pod
 Testy ukážou, jestli nové zvíře odporuje pravidlům a jestli se dá uhodnout a odlišit od ostatních.
 
 Každý push do `master` spustí testy, build a nasazení na GitHub Pages.
+
+## Hlasy postaviček
+
+Postavičky mluví nahrávkami z `public/hlasy/<postava>/<id>.mp3`. Každá věta má vlastní soubor, jehož
+jméno je otisk textu ([`src/hlasy/klice.ts`](src/hlasy/klice.ts)). Tipy se skládají ze začátku věty
+(„Je to“), jména zvířete („liška?“) a případně konce („že jo?“), takže stačí ~750 nahrávek na postavičku
+místo každé věty s každým zvířetem. Když nahrávka chybí, větu řekne syntéza prohlížeče.
+
+- **Zdarma a automaticky:** workflow [Namluvit hlasy](.github/workflows/hlasy.yml) namluví chybějící věty
+  neuronovými hlasy Microsoft Edge (Vlasta a Antonín, přes [edge-tts](https://github.com/rany2/edge-tts)) a commitne je.
+  Spustí se sám, když se v `master` změní hlášky, otázky nebo nastavení hlasů, a jde spustit ručně
+  v záložce Actions (i jen pro jednu postavičku, nebo znovu všechno po změně hlasu).
+- **Výška a tempo hlasů:** [`scripts/hlasy-tts.json`](scripts/hlasy-tts.json).
+- **Jiné služby:** `npm run hlasy:tts -- <edge|azure|google|elevenlabs>`; klíče se berou z proměnných
+  prostředí (`AZURE_SPEECH_KEY` a `AZURE_SPEECH_REGION`, `GOOGLE_TTS_KEY`, `ELEVENLABS_API_KEY`), nikdy je necommituj.
+  `--postava liska`, `--limit 10`, `--prepsat`, `--zkouska` (jen vypíše, co by namlouval).
+- **Vlastním hlasem:** stránka [`?nahravani`](https://tomaas-zeman.github.io/animal-guesser/?nahravani)
+  ukáže větu po větě, nahraješ ji mikrofonem (mezerník), přehraješ, a nakonec stáhneš ZIP, který se
+  rozbalí do `public/`. Nahrávky v prohlížeči hra na tom zařízení používá hned. Ticho na začátku a konci se ořízne samo.
+- `npm run hlasy:seznam` vypíše všechny věty jako `hlasy-seznam.json`, `npm run hlasy:index` zapíše
+  `public/hlasy/index.json` (děje se samo před `dev` a `build`).

@@ -1,4 +1,8 @@
-// Česká řeč přes Web Speech API (speechSynthesis).
+// Česká řeč: předem namluvené nahrávky (src/hlasy), a co nahrané není, přes Web Speech API (speechSynthesis).
+import { rozdelNaVety } from '../hlasy/klice';
+import { odemkni, prehraj, pripravVetu, zastav } from '../hlasy/prehravac';
+
+export { rozdelNaVety };
 
 export interface Hlas {
   pitch: number;
@@ -68,6 +72,7 @@ let relace = 0;
 
 export function zmlkni() {
   relace++;
+  zastav();
   if (mluveniDostupne) speechSynthesis.cancel();
 }
 
@@ -78,17 +83,6 @@ export interface Ladeni {
 }
 
 const BEZ_LADENI: Ladeni = { pitch: 1, rate: 1 };
-
-/**
- * Rozdělí text na věty, aby šlo mezi nimi udělat přirozenou pauzu a každou
- * trochu jinak intonovat. Krátké úseky navíc v Chromu nepřeruší známá chyba dlouhých vět.
- */
-export function rozdelNaVety(text: string): string[] {
-  return text
-    .split(/(?<=[.!?…])\s+/)
-    .map((v) => v.trim())
-    .filter(Boolean);
-}
 
 /** Pauza za větou: po trojtečce se postavička zamyslí, po otázce a zvolání nadechne. */
 export function pauzaZa(veta: string): number {
@@ -139,28 +133,43 @@ function rekniVetu(veta: string, voice: SpeechSynthesisVoice | undefined, pitch:
 }
 
 /**
- * Řekne text a počká, až domluví. Bez syntézy jen počká odhadnutou dobu.
- * Emoce (`ladeni`) mírně posune výšku a tempo hlasu.
+ * Řekne text a počká, až domluví. Věty, které postavička (`postava`) má namluvené,
+ * přehraje z nahrávky, ostatní řekne syntéza. Bez syntézy jen počká odhadnutou dobu.
+ * Emoce (`ladeni`) mírně posune výšku a tempo syntetického hlasu.
  */
-export async function rekni(text: string, hlas: Hlas, ztlumeno = false, ladeni: Ladeni = BEZ_LADENI): Promise<void> {
+export async function rekni(
+  text: string,
+  hlas: Hlas,
+  ztlumeno = false,
+  ladeni: Ladeni = BEZ_LADENI,
+  postava?: string,
+): Promise<void> {
   const odhad = 600 + text.length * 70;
-  if (!mluveniDostupne || ztlumeno) return new Promise((r) => setTimeout(r, Math.min(odhad, 2500)));
+  if (ztlumeno) return new Promise((r) => setTimeout(r, Math.min(odhad, 2500)));
 
+  odemkni();
   zmlkni();
   const moje = relace;
-  const cs = ceskyHlas(hlas.pohlavi);
+  const vety = rozdelNaVety(text);
+  // nahrávky se začnou načítat hned všechny, ať jsou připravené, než na ně dojde
+  const nahravky = vety.map((v) => (postava ? pripravVetu(postava, v) : Promise.resolve(null)));
+  const cs = mluveniDostupne ? ceskyHlas(hlas.pohlavi) : undefined;
   const zaklad = zakladniHlas(hlas, cs);
   // u přirozených hlasů emoci ve výšce jen naznačíme, tempo ale měníme naplno
   const pitch = zaklad.pitch * (1 + (ladeni.pitch - 1) * Math.max(zaklad.mira, 0.6));
   const rate = zaklad.rate * ladeni.rate;
-  const vety = rozdelNaVety(text);
   for (let i = 0; i < vety.length; i++) {
     if (moje !== relace) return;
     const veta = vety[i];
-    // každá věta trochu jinak, otázka jde nahoru, robot zní pořád stejně
-    const kolisani = hlas.robot ? 0 : (Math.random() - 0.5) * 0.04;
-    const otazka = veta.endsWith('?') ? 1.03 : 1;
-    await rekniVetu(veta, cs, pitch * otazka * (1 + kolisani), rate * (1 + kolisani / 2));
+    const nahravka = await nahravky[i];
+    if (moje !== relace) return;
+    if (nahravka) await prehraj(nahravka);
+    else if (mluveniDostupne) {
+      // každá věta trochu jinak, otázka jde nahoru, robot zní pořád stejně
+      const kolisani = hlas.robot ? 0 : (Math.random() - 0.5) * 0.04;
+      const otazka = veta.endsWith('?') ? 1.03 : 1;
+      await rekniVetu(veta, cs, pitch * otazka * (1 + kolisani), rate * (1 + kolisani / 2));
+    } else await new Promise((r) => setTimeout(r, Math.min(600 + veta.length * 70, 2500)));
     if (i < vety.length - 1 && moje === relace) await new Promise((r) => setTimeout(r, pauzaZa(veta)));
   }
 }

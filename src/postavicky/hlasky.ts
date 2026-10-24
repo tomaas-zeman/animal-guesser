@@ -62,6 +62,20 @@ export interface Hlasky {
   nadavkaZnovu: string[];
 }
 
+/** Věty, které hra přidává k hláškám. Postavičky je říkají svým hlasem, proto mají vlastní nahrávky. */
+export const DOPLNKY = {
+  /** výzva po představení, když je zapnutý mikrofon */
+  vyzvaUvod: 'Až ho budeš mít, řekni: hra!',
+  /** výzva po výhře */
+  vyzvaZnovu: 'Řekni: hra!',
+  /** nápověda, když opakovaně nerozumí odpovědi na otázku */
+  napovedaOtazka: 'Řekni ano, ne, nebo nevím.',
+  /** nápověda u tipu */
+  napovedaTip: 'Řekni ano, nebo ne.',
+  /** krátké slovo bez přepisu bývá nezachycené „ne“ */
+  napovedaDelsi: 'Řekni to delší, třeba: není.',
+};
+
 export const LISKA: Hlasky = {
   uvod: [
     'Ahoj, já jsem liška Lili! Mysli si nějaké zvíře a já ho uhodnu.',
@@ -494,4 +508,13 @@ export const BANAN: Hlasky = {
     'Hm? To mi uteklo.',
     'Nerozuměl jsem, zopakuješ to?',
   ],
+};
+
+/** Hlášky podle id postavičky (stejná id jako v POSTAVICKY). */
+export const HLASKY: Record<string, Hlasky> = {
+  liska: LISKA,
+  robot: ROBOT,
+  sova: SOVA,
+  zabak: ZABAK,
+  banan: BANAN,
 };
