@@ -38,6 +38,8 @@ export interface Hlasky {
   omylZnovu: string[];
   vzdavam: string[];
   nerozumim: string[];
+  /** vtipná reakce, když jí hráč nadává (blbá, hluchá…) */
+  urazka: string[];
 }
 
 export const LISKA: Hlasky = {
@@ -79,6 +81,13 @@ export const LISKA: Hlasky = {
     'Hm? Uteklo mi to.',
     'Nerozuměla jsem.',
   ],
+  urazka: [
+    'Blbá liška? Hloupá je leda slepice!',
+    'Hluchá? Já slyším i myš, jak kýchne. Ale tvoje ne jsem asi přeslechla.',
+    'Au, to bolí víc než trn v tlapce! Tak mi raději odpověz.',
+    'Nadávat je liščí specialita. Ale hádání je moje!',
+    'Tak to si zapíšu do knížky drzostí. A hádám dál!',
+  ],
 };
 
 export const ROBOT: Hlasky = {
@@ -118,6 +127,13 @@ export const ROBOT: Hlasky = {
     'Nerozpoznáno.',
     'Signál nečitelný.',
     'Opakuj, prosím.',
+  ],
+  urazka: [
+    'Urážka zaznamenána. Uložena do koše. Píp.',
+    'Chyba: hloupost nenalezena. Pokračuji.',
+    'Moje obvody se urazily. Restartuji dobrou náladu. Píp.',
+    'Hluchý? Mám šestnáct mikrofonů! Asi je čas na čištění uší. Bzzz.',
+    'Analyzuji… tvoje nadávka má nízké skóre. Zkus odpověď.',
   ],
 };
 
@@ -159,6 +175,13 @@ export const SOVA: Hlasky = {
     'Ještě jednou?',
     'Uniklo mi to.',
   ],
+  urazka: [
+    'Hú hú! Moudrá sova si nadávky nebere k srdci.',
+    'Hluchá? Já slyším i šustot listí. Ale mluv trochu nahlas, ano?',
+    'Ve všech mých knížkách píšou, že nadávat se nemá. Hú.',
+    'Tak to by mi ani výr neřekl! Pojďme hádat dál.',
+    'Hú, nasadím si silnější brýle. A ty mi odpověz pěkně.',
+  ],
 };
 
 export const ZABAK: Hlasky = {
@@ -198,6 +221,13 @@ export const ZABAK: Hlasky = {
     'Cože?',
     'Ještě jednou?',
     'Voda v uších. Znovu?',
+  ],
+  urazka: [
+    'Kvák! Tak to mě ještě žádná princezna nenazvala!',
+    'Hluchý? Měl jsem jen vodu v uších. Žbluňk!',
+    'Za tohle by tě v rybníku poslali spát mezi pulce. Kvák!',
+    'Ani čáp mi takhle nenadává. Hádáme dál!',
+    'Kvák, nadávky si strčím pod leknín. Odpověz mi radši.',
   ],
 };
 
@@ -340,5 +370,12 @@ export const BANAN: Hlasky = {
     'Ještě jednou, prosím?',
     'Hm? To mi uteklo.',
     'Nerozuměl jsem, zopakuješ to?',
+  ],
+  urazka: [
+    'Blbý banán? Jsem prostě trochu přezrálý.',
+    'Hluchý? Mám banán v uchu… počkat, já jsem celý banán!',
+    'Au! Teď mám na sobě černou skvrnu. Ale vtipy mi zůstaly.',
+    'Takovou kritiku jsem nedostal ani od opice v první řadě!',
+    'Klid, jsem jenom ovoce. Tak hádáme dál?',
   ],
 };

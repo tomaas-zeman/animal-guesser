@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PORUCH, vyberTexty, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
+import { KRATKY_HLAS, MAX_PORUCH, bezUrazek, jeUrazka, vyberTexty, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
 
 describe('rozpoznání odpovědi z řeči', () => {
   const pripady: [string, ReturnType<typeof rozpoznejOdpoved>][] = [
@@ -161,5 +161,26 @@ describe('výběr přepisů', () => {
       ]),
     ).toEqual(['mne', 'ne']);
     expect(vyberTexty([{ text: ' ', jistota: 0, final: true }])).toEqual([]);
+  });
+});
+
+describe('nadávky postavičce', () => {
+  for (const text of ['ty jsi blbá', 'Hluchá!', 'jsi hloupá', 'nic neumíš', 'ty pitomče', 'neslyšíš?']) {
+    it(`"${text}" je nadávka`, () => expect(jeUrazka([text])).toBe(true));
+  }
+  for (const text of ['ne', 'neumí', 'je to osel', 'kráva', 'nevím', 'slepice']) {
+    it(`"${text}" není nadávka`, () => expect(jeUrazka([text])).toBe(false));
+  }
+  it('odpověď vedle nadávky platí', () => {
+    expect(rozpoznejOdpoved(bezUrazek(['ne, ty hluchá']))).toBe('ne');
+    expect(rozpoznejOdpoved(bezUrazek(['nic neumíš']))).toBe(null);
+  });
+});
+
+describe('krátký hlas bez přepisu', () => {
+  it('není výpadek, ale nesrozumitelná odpověď', () => {
+    const s = { texty: [], chyba: KRATKY_HLAS, trvani: 900 };
+    expect(jePorucha(s)).toBe(false);
+    expect(jeNesrozumitelne(s)).toBe(true);
   });
 });

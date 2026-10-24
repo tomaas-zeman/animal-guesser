@@ -14,6 +14,11 @@ interface Rozpoznavac {
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
   onaudiostart: (() => void) | null;
+  onsoundstart: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
+  onsoundend: (() => void) | null;
+  onnomatch: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -48,7 +53,12 @@ export interface Slyseni {
   trvani: number;
   /** poslech ukončila jasná průběžná odpověď, nečekalo se na finální výsledek */
   zkraceno?: boolean;
+  /** co se během poslechu dělo, s časem v ms od startu (pro ladění) */
+  udalosti?: string[];
 }
+
+/** Hráč podle měření hlasitosti něco krátkého řekl, ale rozpoznávání nevrátilo nic. */
+export const KRATKY_HLAS = 'kratky-hlas';
 
 export interface Poslech {
   vysledek: Promise<Slyseni>;
@@ -64,7 +74,11 @@ const MAX_DELKA = 20_000;
  */
 export const CEKANI_PO_ODPOVEDI = 700;
 
-export function poslouchej(naStart?: () => void): Poslech {
+/**
+ * @param naStart zavolá se, až mikrofon opravdu poslouchá
+ * @param hracDomluvil vrací true, když měření hlasitosti zachytilo hlas hráče a po něm ticho
+ */
+export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): Poslech {
   const Trida = tridaRozpoznavace();
   if (!Trida) return { vysledek: Promise.resolve({ texty: [], prepisy: [], chyba: 'nedostupny', trvani: 0 }), zrus() {} };
 
@@ -76,6 +90,7 @@ export function poslouchej(naStart?: () => void): Poslech {
   const zacatek = Date.now();
   let pojistka: ReturnType<typeof setTimeout> | undefined;
   let dokonci: ReturnType<typeof setTimeout> | undefined;
+  let hlidka: ReturnType<typeof setInterval> | undefined;
   // mikrofon se rozbíhá chvíli; hráč má poznat, kdy už může mluvit
   let odstartovano = false;
   const ohlasStart = () => {
@@ -84,12 +99,32 @@ export function poslouchej(naStart?: () => void): Poslech {
     naStart?.();
   };
   const zalozniStart = setTimeout(ohlasStart, 1000);
-  r.onaudiostart = ohlasStart;
+  const udalosti: string[] = [];
+  const zapis = (co: string) => udalosti.push(`${co}@${Date.now() - zacatek}`);
+  r.onaudiostart = () => {
+    zapis('audio');
+    ohlasStart();
+  };
+  r.onsoundstart = () => zapis('zvuk');
+  r.onspeechstart = () => zapis('řeč');
+  r.onspeechend = () => zapis('/řeč');
+  r.onsoundend = () => zapis('/zvuk');
+  r.onnomatch = () => zapis('nomatch');
 
   const vysledek = new Promise<Slyseni>((resolve, reject) => {
     let prepisy: Prepis[] = [];
     let chyba: string | undefined;
     let zkraceno = false;
+    let kratkyHlas = false;
+    // rozpoznávání krátké "ne" někdy nezaznamená vůbec, i když ho mikrofon slyšel
+    hlidka = setInterval(() => {
+      if (prepisy.length === 0 && hracDomluvil?.()) {
+        kratkyHlas = true;
+        zapis('krátký hlas');
+        clearInterval(hlidka);
+        r.stop();
+      }
+    }, 200);
     r.onresult = (e) => {
       prepisy = [];
       for (let i = 0; i < e.results.length; i++) {
@@ -98,6 +133,7 @@ export function poslouchej(naStart?: () => void): Poslech {
           prepisy.push({ text: alt[j].transcript, jistota: alt[j].confidence ?? 0, final: alt.isFinal !== false });
         }
       }
+      zapis(prepisy.some((p) => p.final) ? 'výsledek' : 'průběžně');
       clearTimeout(dokonci);
       const prubezne = prepisy.filter((p) => !p.final).map((p) => p.text);
       if (prubezne.length && !prepisy.some((p) => p.final) && rozpoznejOdpoved(prubezne)) {
@@ -108,6 +144,7 @@ export function poslouchej(naStart?: () => void): Poslech {
       }
     };
     r.onerror = (e) => {
+      zapis(`chyba:${e.error}`);
       chyba = e.error;
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') reject(new Error('mikrofon-zakazan'));
       // některé telefony nedovolí poslouchat a zároveň měřit hlasitost
@@ -117,8 +154,11 @@ export function poslouchej(naStart?: () => void): Poslech {
       clearTimeout(pojistka);
       clearTimeout(dokonci);
       clearTimeout(zalozniStart);
+      clearInterval(hlidka);
+      zapis('konec');
       const texty = vyberTexty(prepisy);
-      resolve({ texty, prepisy, chyba: texty.length ? undefined : chyba, trvani: Date.now() - zacatek, zkraceno });
+      const proc = texty.length ? undefined : kratkyHlas ? KRATKY_HLAS : chyba;
+      resolve({ texty, prepisy, chyba: proc, trvani: Date.now() - zacatek, zkraceno, udalosti });
     };
   });
 
@@ -126,6 +166,7 @@ export function poslouchej(naStart?: () => void): Poslech {
     r.start();
   } catch {
     clearTimeout(zalozniStart);
+    clearInterval(hlidka);
     // typicky "už běží" hned po předchozím poslechu; volající to zkusí znovu
     return { vysledek: Promise.resolve({ texty: [], prepisy: [], chyba: 'start', trvani: 0 }), zrus() {} };
   }
@@ -135,6 +176,7 @@ export function poslouchej(naStart?: () => void): Poslech {
     zrus: () => {
       clearTimeout(pojistka);
       clearTimeout(dokonci);
+      clearInterval(hlidka);
       clearTimeout(zalozniStart);
       r.abort();
     },
@@ -206,6 +248,24 @@ export function jeZopakuj(texty: string[]): boolean {
     const t = normalizuj(text);
     return slov(t) <= MAX_SLOV + 1 && ZOPAKUJ.test(t);
   });
+}
+
+/** Nadávky postavičce ("ty jsi blbá", "hluchá", "nic neumíš"…). Postavička na ně vtipně zareaguje. */
+const URAZKY =
+  /\b(ty jsi |jsi |ty )?(blb[a-z]*|hloup[a-z]*|hluch[a-z]*|pitom[a-z]*|debil[a-z]*|trubk[a-z]*|nemehl[a-z]*|tup[aeyo]|tupec|osle|kravo|idiot[a-z]*|dement[a-z]*|jelit[a-z]*|magor[a-z]*|cvok[a-z]*|hnusn[a-z]*|smrad[a-z]*|smrdis|nanic|k nicemu|nic neumis|neumis nic|neslysis|nerozumis)\b( jsi)?/g;
+
+/** Řekl hráč postavičce nějakou nadávku? */
+export function jeUrazka(texty: string[]): boolean {
+  return texty.some((text) => {
+    const t = normalizuj(text);
+    URAZKY.lastIndex = 0;
+    return slov(t) <= MAX_SLOV_S_ODPOVEDI_NA_KONCI && URAZKY.test(t);
+  });
+}
+
+/** Přepisy bez nadávek, aby "ne, ty hluchá" pořád znamenalo ne. */
+export function bezUrazek(texty: string[]): string[] {
+  return texty.map((text) => normalizuj(text).replace(URAZKY, ' ').replace(/\s+/g, ' ').trim());
 }
 
 const START = /\b(hra|hru|hrat|hrajem|hrajeme|hraju|zacni|zacneme|zaciname|jdeme|start|mam ho|mam)\b/;
@@ -281,12 +341,13 @@ const MIN_DELKA = 1500;
 
 /** Je prázdný poslech výpadek (síť, chyba, okamžitý konec), a ne jen mlčící hráč? */
 export function jePorucha(s: Slyseni): boolean {
+  if (s.chyba === KRATKY_HLAS) return false;
   return s.trvani < MIN_DELKA || (!!s.chyba && s.chyba !== 'no-speech' && s.chyba !== 'no-match');
 }
 
 /** Hráč něco řekl, ale rozpoznávání z toho nedostalo žádná slova. */
 export function jeNesrozumitelne(s: Slyseni): boolean {
-  return s.texty.length === 0 && !jePorucha(s) && (s.chyba === 'no-match' || !s.chyba);
+  return s.texty.length === 0 && !jePorucha(s) && (s.chyba === 'no-match' || s.chyba === KRATKY_HLAS || !s.chyba);
 }
 
 /** Jak dlouho počkat po n-tém výpadku za sebou, aby se poslech nezacyklil. */
