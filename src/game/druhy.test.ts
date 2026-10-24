@@ -30,6 +30,8 @@ const SKUPINY: Record<string, string[]> = {
   lasicovití: ['Kuna', 'Lasice', 'Tchoř', 'Jezevec', 'Vydra'],
   hmyz: ['Včela', 'Čmelák', 'Vosa', 'Šváb', 'Cvrček', 'Kudlanka', 'Vážka', 'Bělásek', 'Můra', 'Roháč', 'Mandelinka',
     'Světluška', 'Ruměnice', 'Blecha'],
+  záludná: ['Kiwi', 'Ptakopysk', 'Ježura', 'Luskoun', 'Okapi', 'Ksukol', 'Nártoun', 'Kasuár', 'Vačice', 'Želvuška', 'Ďas',
+    'Sépie', 'Fosa', 'Dodo'],
   'další drobní': ['Klíště', 'Štír', 'Tarantule', 'Stonožka', 'Mnohonožka', 'Svinka', 'Slimák', 'Pijavice', 'Šnek', 'Pavouk'],
 };
 
