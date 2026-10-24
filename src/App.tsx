@@ -3,7 +3,7 @@ import db from './data/zvirata.json';
 import { Hra, type Databaze, type Odpoved, type Tah } from './game/engine';
 import { POSTAVICKY, nahodne } from './postavicky';
 import type { Nalada } from './postavicky/spolecne';
-import { ceskyHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
+import { ceskyHlas, jePrirozeny, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
 import { poslechDostupny, poslouchej, rozpoznejOdpoved } from './rec/poslech';
 import { Scena } from './Scena';
 
@@ -39,12 +39,16 @@ export default function App() {
   // každá akce hráče zvýší generaci, aby starý rozběhnutý průběh (mluvení, poslech) skončil
   const generace = useRef(0);
   const zrusPoslech = useRef<() => void>(() => {});
+  const reklTuseni = useRef(false);
   const nastaveniRef = useRef({ mikrofon, ztlumeno });
   nastaveniRef.current = { mikrofon, ztlumeno };
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (mluveniDostupne && !ceskyHlas()) setUpozorneni('Prohlížeč nemá český hlas, postavička může mluvit s přízvukem.');
+      if (!mluveniDostupne) return;
+      const hlas = ceskyHlas();
+      if (!hlas) setUpozorneni('Prohlížeč nemá český hlas, postavička může mluvit s přízvukem. Nejlíp mluví v prohlížeči Edge.');
+      else if (!jePrirozeny(hlas)) setUpozorneni('Tip: nejpřirozeněji postavičky mluví v prohlížeči Microsoft Edge.');
     }, 1500);
     return () => clearTimeout(t);
   }, []);
@@ -96,18 +100,25 @@ export default function App() {
     }
   }, [mluv, postavicka]);
 
-  const dalsiTah = useCallback(async (gen: number) => {
+  const dalsiTah = useCallback(async (gen: number, reakce = '') => {
     const h = hra.current;
     if (!h) return;
     const t = h.dalsiTah();
     if (t.typ === 'otazka') {
       setNalada('premysli');
-      setBublina('…');
+      setBublina(reakce || '…');
       await pockej(450);
       if (gen !== generace.current) return;
+      // jednou za hru prozradí, že už má favorita
+      let uvod = reakce;
+      if (!reklTuseni.current && (h.poradi()[0]?.pst ?? 0) >= 0.3) {
+        reklTuseni.current = true;
+        uvod = nahodne(postavicka.hlasky.tuseni);
+      }
       setNalada('klid');
       setTah(t);
-      if (await mluv(t.text, gen)) poslouchejOdpoved(gen);
+      // reakce a otázka jako jedna věta, aby mezi nimi nebyla dlouhá pauza
+      if (await mluv(uvod ? `${uvod} ${t.text}` : t.text, gen)) poslouchejOdpoved(gen);
     } else if (t.typ === 'tip') {
       setTah(t);
       setNalada('tipuje');
@@ -128,7 +139,8 @@ export default function App() {
     setTah(null);
     if (tah.typ === 'otazka') {
       h.odpovez(tah.id, o);
-      dalsiTah(gen);
+      // reaguje skoro vždycky, ale ne pokaždé, aby to neznělo naučeně
+      dalsiTah(gen, Math.random() < 0.75 ? nahodne(postavicka.hlasky.reakce[o]) : '');
     } else if (tah.typ === 'tip') {
       if (o === 'ano') {
         setTah(tah); // nechá v bublině obrázek uhodnutého zvířete
@@ -155,6 +167,7 @@ export default function App() {
   const zacni = async () => {
     const gen = prerus();
     hra.current = new Hra(databaze);
+    reklTuseni.current = false;
     setTah(null);
     setSlyseno('');
     setFaze('hra');

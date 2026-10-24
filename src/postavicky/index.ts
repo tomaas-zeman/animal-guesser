@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { Odpoved } from '../game/engine';
 import type { Hlas } from '../rec/mluveni';
 import { Liska } from './Liska';
 import { Robot } from './Robot';
@@ -14,6 +15,10 @@ export interface Hlasky {
   omyl: string[];
   vzdavam: string;
   nerozumim: string;
+  /** krátká reakce na odpověď, řekne ji před další otázkou */
+  reakce: Record<Odpoved, string[]>;
+  /** když už má favorita */
+  tuseni: string[];
 }
 
 export interface Postavicka {
@@ -34,7 +39,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Mazaná liška, která zná každé zvíře z lesa.',
     barva: '#e8762b',
     pozadi: ['#ffe2c2', '#ffb27a'],
-    hlas: { pitch: 1.35, rate: 1.05 },
+    hlas: { pitch: 1.15, rate: 1.02, pohlavi: 'zena' },
     Komponenta: Liska,
     hlasky: {
       uvod: 'Ahoj, já jsem liška Lili! Mysli si nějaké zvíře a já ho uhodnu.',
@@ -43,7 +48,14 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Hurá! Uhodla jsem to!', 'Liška je prostě mazaná! Hrajeme znovu?'],
       omyl: ['Hmm, tak to ne. Budu se ptát dál.', 'Aha, vedle. Ale nevzdávám se!'],
       vzdavam: 'Tohle je na mě moc těžké! Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Promiň, nerozuměla jsem. Řekni ano, ne, nevím, nebo může být.',
+      nerozumim: 'Promiň, nerozuměla jsem. Můžeš to prosím zopakovat?',
+      reakce: {
+        ano: ['Ahaaa, chápu.', 'Aha!', 'Výborně.', 'To se hodí.', 'Jasně, jasně.'],
+        ne: ['Hmm, dobře.', 'Aha, tak to ne.', 'Jasně.', 'Hmm.'],
+        nevim: ['Nevadí.', 'To nic.', 'Dobře, zkusím to jinak.'],
+        mozna: ['Hmm, zajímavé.', 'Aha, možná…', 'Hmm, dobře.'],
+      },
+      tuseni: ['Už mám takové tušení…', 'Můj nosánek už něco cítí…'],
     },
   },
   {
@@ -52,7 +64,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Chytrý robot s velkou databází v hlavě.',
     barva: '#4f8fd9',
     pozadi: ['#d9ecff', '#8fb8ec'],
-    hlas: { pitch: 0.6, rate: 0.95 },
+    hlas: { pitch: 0.8, rate: 0.98, pohlavi: 'muz' },
     Komponenta: Robot,
     hlasky: {
       uvod: 'Píp píp. Jsem robot Robík. Mysli si zvíře. Moje obvody ho uhodnou.',
@@ -61,7 +73,14 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Píp píp! Správně! Mise splněna!', 'Úspěch! Robík vyhrál. Další hra?'],
       omyl: ['Chyba v obvodech. Pokračuji v hledání.', 'Nesprávně. Přepočítávám.'],
       vzdavam: 'Chyba. Neznámé zvíře. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Nerozpoznal jsem odpověď. Řekni ano, ne, nevím, nebo může být.',
+      nerozumim: 'Nerozpoznal jsem odpověď. Můžeš to prosím zopakovat?',
+      reakce: {
+        ano: ['Ukládám. Ano.', 'Zaznamenáno.', 'Píp. Rozumím.', 'Výborně.'],
+        ne: ['Zaznamenáno. Ne.', 'Rozumím.', 'Píp. Dobře.'],
+        nevim: ['Nevadí. Přeskakuji.', 'V pořádku.'],
+        mozna: ['Zpracovávám… Zajímavé.', 'Hmm. Rozumím.'],
+      },
+      tuseni: ['Pravděpodobnost roste…', 'Mé obvody něco tuší…'],
     },
   },
   {
@@ -70,7 +89,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Moudrá sova v brýlích. Přečetla všechny knížky o zvířatech.',
     barva: '#8a5a3c',
     pozadi: ['#e8dcff', '#a99ad6'],
-    hlas: { pitch: 1.1, rate: 0.92 },
+    hlas: { pitch: 1.05, rate: 0.95, pohlavi: 'zena' },
     Komponenta: Sova,
     hlasky: {
       uvod: 'Hú hú, já jsem sova Soňa. Mysli si zvíře a já ho svou moudrostí uhodnu.',
@@ -79,7 +98,14 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Hú hú! Moudrost zvítězila!', 'Věděla jsem to! Zahrajeme si ještě?'],
       omyl: ['Hú, to mě překvapilo. Ptám se dál.', 'Ani sova neví všechno hned. Pokračujeme.'],
       vzdavam: 'Hú hú, tohle v mých knížkách není. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Hú? Nerozuměla jsem. Řekni ano, ne, nevím, nebo může být.',
+      nerozumim: 'Hú? Nerozuměla jsem. Můžeš to prosím zopakovat?',
+      reakce: {
+        ano: ['Ahaaa, hú hú.', 'Zajímavé.', 'Přesně jak jsem myslela.', 'Aha!'],
+        ne: ['Hmm, dobře.', 'Tak to ne, rozumím.', 'Aha.'],
+        nevim: ['To nevadí.', 'I sova občas neví.'],
+        mozna: ['Hmm, to je zajímavé.', 'Aha, možná…'],
+      },
+      tuseni: ['Hú, už mi to začíná docházet…', 'Mám takové moudré tušení…'],
     },
   },
   {
@@ -88,7 +114,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Žabí princ s korunkou. Rád skáče a ještě radši hádá.',
     barva: '#5cb85c',
     pozadi: ['#dcf7d0', '#8fd18a'],
-    hlas: { pitch: 0.85, rate: 1.1 },
+    hlas: { pitch: 0.92, rate: 1.05, pohlavi: 'muz' },
     Komponenta: Zabak,
     hlasky: {
       uvod: 'Kvák! Já jsem žabák Kvak, princ z rybníka. Mysli si zvíře a já ho uhodnu.',
@@ -97,7 +123,14 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Kvák kvák! Uhodl jsem!', 'Hurá, skáču radostí! Ještě jednou?'],
       omyl: ['Kvák, to ne? Tak hádám dál.', 'Žbluňk, vedle. Zkusím to znovu.'],
       vzdavam: 'Kvák, to nevím. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Kvák? Nerozuměl jsem. Řekni ano, ne, nevím, nebo může být.',
+      nerozumim: 'Kvák? Nerozuměl jsem. Můžeš to prosím zopakovat?',
+      reakce: {
+        ano: ['Kvák, chápu!', 'Ahaaa!', 'Super!', 'Jasně!'],
+        ne: ['Hmm, kvák.', 'Aha, tak ne.', 'Dobře.'],
+        nevim: ['Nevadí, kvák.', 'To nic.'],
+        mozna: ['Hmm, možná…', 'Kvák, zajímavé.'],
+      },
+      tuseni: ['Kvák, už něco tuším…', 'Už jsem blízko, kvák!'],
     },
   },
 ];

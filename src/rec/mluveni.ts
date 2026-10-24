@@ -3,6 +3,8 @@
 export interface Hlas {
   pitch: number;
   rate: number;
+  /** jaký hlas postavičce sedí víc, když je na výběr */
+  pohlavi: 'zena' | 'muz';
 }
 
 let hlasy: SpeechSynthesisVoice[] = [];
@@ -17,8 +19,31 @@ if (typeof speechSynthesis !== 'undefined') {
   speechSynthesis.addEventListener?.('voiceschanged', nactiHlasy);
 }
 
-export function ceskyHlas(): SpeechSynthesisVoice | undefined {
-  return hlasy.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith('cs'));
+const ZENSKE = /vlasta|zuzana|iveta|jana|tereza|dana|female|žena/i;
+const MUZSKE = /anton[ií]n|jakub|ji[rř][ií]|jirka|male|muž/i;
+
+/** Seřadí české hlasy od nejpřirozenějšího. Neurální hlasy (Edge, Android) zní nejlíp. */
+function skore(v: SpeechSynthesisVoice, pohlavi?: Hlas['pohlavi']): number {
+  let s = 0;
+  if (/natural|neural|online|enhanced|premium|siri/i.test(v.name)) s += 10;
+  if (/google/i.test(v.name)) s += 5;
+  if (!v.localService) s += 2;
+  if (pohlavi === 'zena' && ZENSKE.test(v.name)) s += 3;
+  if (pohlavi === 'muz' && MUZSKE.test(v.name)) s += 3;
+  return s;
+}
+
+export function ceskeHlasy(): SpeechSynthesisVoice[] {
+  return hlasy.filter((v) => v.lang.toLowerCase().replace('_', '-').startsWith('cs'));
+}
+
+export function ceskyHlas(pohlavi?: Hlas['pohlavi']): SpeechSynthesisVoice | undefined {
+  return ceskeHlasy().sort((a, b) => skore(b, pohlavi) - skore(a, pohlavi))[0];
+}
+
+/** Zní hlas přirozeně? Takovému hlasu výšku skoro neměníme, aby nezněl roboticky. */
+export function jePrirozeny(v: SpeechSynthesisVoice | undefined) {
+  return !!v && skore(v) >= 10;
 }
 
 export const mluveniDostupne = typeof speechSynthesis !== 'undefined';
@@ -36,9 +61,11 @@ export function rekni(text: string, hlas: Hlas, ztlumeno = false): Promise<void>
     zmlkni();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'cs-CZ';
-    const cs = ceskyHlas();
+    const cs = ceskyHlas(hlas.pohlavi);
     if (cs) u.voice = cs;
-    u.pitch = hlas.pitch;
+    // velká změna výšky zkresluje, u přirozených hlasů ji jen naznačíme
+    const mira = jePrirozeny(cs) ? 0.4 : 1;
+    u.pitch = 1 + (hlas.pitch - 1) * mira;
     u.rate = hlas.rate;
     let hotovo = false;
     const konec = () => {
