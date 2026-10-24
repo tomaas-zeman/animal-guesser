@@ -5,6 +5,8 @@ import { Hra, type Databaze, type Nastaveni, type Odpoved } from './engine';
 export interface Hrac {
   nevim: number;
   omyl: number;
+  /** jak často se splete u jisté otázky (je to pták, má křídla); bez udání stejně jako jinde */
+  omylJiste?: number;
 }
 
 /** Jednoduchý deterministický generátor, aby simulace dávala vždy stejný výsledek. */
@@ -18,16 +20,16 @@ export function mulberry32(seed: number) {
   };
 }
 
-function odpovedHrace(p: number, hrac: Hrac, rng: () => number): Odpoved {
+function odpovedHrace(p: number, hrac: Hrac, rng: () => number, jista = false): Odpoved {
   if (rng() < hrac.nevim) return 'nevim';
   if (p > 0.25 && p < 0.75 && rng() < 0.4) return 'mozna';
   let ano = rng() < p;
-  if (rng() < hrac.omyl) ano = !ano;
+  if (rng() < (jista ? (hrac.omylJiste ?? hrac.omyl) : hrac.omyl)) ano = !ano;
   return ano ? 'ano' : 'ne';
 }
 
 /** Jak hráč odpoví na otázku, když vlastnost platí s pravděpodobností p. */
-export type Odpovidac = (p: number, rng: () => number) => Odpoved;
+export type Odpovidac = (p: number, rng: () => number, jista?: boolean) => Odpoved;
 
 /** Hráč, který odpovídá přesně podle databáze (co platí aspoň napůl, je "ano"). */
 export const presnyHrac: Odpovidac = (p) => (p >= 0.5 ? 'ano' : 'ne');
@@ -80,7 +82,7 @@ export function odehraj(
       continue;
     }
     if (!hra.muzeSePtat(tah.id)) zbytecneOtazky.push(tah.id);
-    hra.odpovez(tah.id, odpovidac(profil[tah.id] ?? 0, rng));
+    hra.odpovez(tah.id, odpovidac(profil[tah.id] ?? 0, rng, db.jiste?.includes(tah.id)));
   }
   throw new Error('hra se zacyklila');
 }
@@ -91,7 +93,7 @@ export function simuluj(db: Databaze, hrac: Hrac, her: number, nastaveni: Partia
   const neuspechy: Record<string, number> = {};
   db.zvirata.forEach((z, cil) => {
     for (let i = 0; i < her; i++) {
-      const v = odehraj(db, cil, (p, r) => odpovedHrace(p, hrac, r), nastaveni, rng);
+      const v = odehraj(db, cil, (p, r, jista) => odpovedHrace(p, hrac, r, jista), nastaveni, rng);
       celkem++;
       otazek += v.otazek;
       tipu += v.tipu;

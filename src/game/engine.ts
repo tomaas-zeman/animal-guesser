@@ -28,6 +28,12 @@ export interface Databaze {
   pravidla?: string[];
   /** skupiny vlastností, ze kterých platí nejvýš jedna (savec, pták, ryba…) */
   vylucne?: string[][];
+  /**
+   * Otázky s jistou odpovědí (je to pták, má křídla, žije v moři…). Rozpor s nimi váží víc
+   * než s nejistými (je hnědé, umí skákat), takže zvíře, které nesedí jen v barvě,
+   * má přednost před zvířetem z úplně jiné skupiny.
+   */
+  jiste?: string[];
 }
 
 /** Vlastnost s hodnotou: [id, platí?] */
@@ -73,6 +79,10 @@ export type Tah =
 export interface Nastaveni {
   /** jak často se člověk splete i u jasné vlastnosti */
   chyba: number;
+  /** jak často se splete u jisté otázky (pták, křídla…) */
+  chybaJista: number;
+  /** kolik nejistých rozporů (barva, skákání) váží jeden rozpor s jistou otázkou */
+  vahaJisteho: number;
   /** od jaké jistoty postavička tipuje */
   jistotaTipu: number;
   /** po kolika otázkách tipuje i s menší jistotou */
@@ -87,6 +97,8 @@ export interface Nastaveni {
 
 export const vychoziNastaveni: Nastaveni = {
   chyba: 0.06,
+  chybaJista: 0.03,
+  vahaJisteho: 3,
   jistotaTipu: 0.9,
   trpelivost: 18,
   maxOtazek: 30,
@@ -125,14 +137,17 @@ export class Hra {
   private rng: () => number;
   /** pravděpodobnosti zvířat (normalizované, vyloučená mají 0) */
   pst: number[];
-  /** u kolika odpovědí zvíře jasně nesedí */
+  /** u kolika odpovědí zvíře jasně nesedí; rozpor s jistou otázkou váží `vahaJisteho` */
   rozpory: number[];
+  /** u kolika jistých odpovědí zvíře nesedí */
+  jisteRozpory: number[];
   polozene = new Set<string>();
   /** co už z odpovědí plyne (přímo nebo podle pravidel) */
   zname = new Map<string, boolean>();
   historie: { id: string; odpoved: Odpoved }[] = [];
   spatneTipy: number[] = [];
   private pravidla: Implikace[];
+  private jiste: Set<string>;
 
   constructor(db: Databaze, nastaveni: Partial<Nastaveni> = {}, rng: () => number = Math.random) {
     this.db = db;
@@ -140,7 +155,13 @@ export class Hra {
     this.rng = rng;
     this.pst = db.zvirata.map(() => 1 / db.zvirata.length);
     this.rozpory = db.zvirata.map(() => 0);
+    this.jisteRozpory = db.zvirata.map(() => 0);
     this.pravidla = implikace(db);
+    this.jiste = new Set(db.jiste ?? []);
+  }
+
+  private chybaOtazky(id: string): number {
+    return this.jiste.has(id) ? this.nastaveni.chybaJista : this.nastaveni.chyba;
   }
 
   get pocetOtazek(): number {
@@ -165,9 +186,15 @@ export class Hra {
   odpovez(id: string, odpoved: Odpoved): void {
     this.polozene.add(id);
     this.historie.push({ id, odpoved });
-    const { chyba } = this.nastaveni;
+    const chyba = this.chybaOtazky(id);
+    const jista = this.jiste.has(id);
+    const vaha = jista ? this.nastaveni.vahaJisteho : 1;
     this.pst = this.pst.map((p, i) => p * verohodnost(this.db.zvirata[i].a[id] ?? 0, odpoved, chyba));
-    this.rozpory = this.rozpory.map((r, i) => r + (jeRozpor(this.db.zvirata[i].a[id] ?? 0, odpoved) ? 1 : 0));
+    this.db.zvirata.forEach((z, i) => {
+      if (!jeRozpor(z.a[id] ?? 0, odpoved)) return;
+      this.rozpory[i] += vaha;
+      if (jista) this.jisteRozpory[i]++;
+    });
     this.normalizuj();
     if (odpoved === 'ano' || odpoved === 'ne') this.odvod(id, odpoved === 'ano');
   }
@@ -238,19 +265,46 @@ export class Hra {
     return w;
   }
 
-  /** Dá se na otázku ještě ptát? Ne, když už padla, nebo odpověď plyne z předchozích. */
-  muzeSePtat(id: string): boolean {
-    return !this.polozene.has(id) && !this.zname.has(id);
+  /**
+   * Zvířata, která sedí na odpovědi (mají nejméně rozporů). Na co mají všechna stejnou
+   * jasnou odpověď, to už z odpovědí plyne. Když sedí jen jedno, porovnává se se zvířaty,
+   * se kterými postavička ještě vážně počítá (aspoň desetina pravděpodobnosti favorita).
+   */
+  private mozna(): number[] {
+    const veHre = this.pst.map((p, i) => (p > 0 ? i : -1)).filter((i) => i >= 0);
+    const min = Math.min(...veHre.map((i) => this.rozpory[i]));
+    const sedi = veHre.filter((i) => this.rozpory[i] === min);
+    if (sedi.length > 1) return sedi;
+    const max = Math.max(...this.pst);
+    return veHre.filter((i) => this.pst[i] >= 0.1 * max);
+  }
+
+  /** Mají všechna zvířata na otázku stejnou jasnou odpověď? Pak je otázka zbytečná. */
+  private jeJasna(id: string, zvirata: number[]): boolean {
+    if (zvirata.length === 0) return false;
+    const v = zvirata.map((i) => this.db.zvirata[i].a[id] ?? 0);
+    return v.every((x) => x <= 0.1) || v.every((x) => x >= 0.9);
+  }
+
+  /**
+   * Dá se na otázku ještě ptát? Ne, když už padla, když odpověď plyne z pravidel
+   * (pták → má peří), nebo když ji mají stejnou všechna zvířata, která ještě sedí
+   * (žije v moři → nežije v lese, obojživelník → nemá peří).
+   */
+  muzeSePtat(id: string, mozna = this.mozna()): boolean {
+    return !this.polozene.has(id) && !this.zname.has(id) && !this.jeJasna(id, mozna);
   }
 
   /** Otázka s nejmenší očekávanou entropií po odpovědi ano/ne. */
   vyberOtazku(vahy: number[] = this.pst): string | null {
-    const { chyba, pestrost } = this.nastaveni;
+    const { pestrost } = this.nastaveni;
     const h0 = entropie(vahy);
     const kandidati: { id: string; zisk: number }[] = [];
+    const mozna = this.mozna();
 
     for (const id of Object.keys(this.db.otazky)) {
-      if (!this.muzeSePtat(id)) continue;
+      if (!this.muzeSePtat(id, mozna)) continue;
+      const chyba = this.chybaOtazky(id);
       const wAno: number[] = [];
       const wNe: number[] = [];
       let pAno = 0;
