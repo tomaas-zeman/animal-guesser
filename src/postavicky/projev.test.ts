@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { pauzaZa, rozdelNaVety } from '../rec/mluveni';
 import { VYRAZY } from './emoce';
-import { BANAN, LISKA, ROBOT, SOVA, VOJTACU, ZABAK, type Hlasky } from './hlasky';
+import { BANAN, LISKA, VOJTACU, type Hlasky } from './hlasky';
 import { JISTOTA_BLIZKO, JISTOTA_TUSENI, Projev, nahodne, type PoOdpovedi } from './projev';
 
 const VSECHNY: [string, Hlasky][] = [
   ['liška', LISKA],
-  ['robot', ROBOT],
-  ['sova', SOVA],
-  ['žabák', ZABAK],
   ['banán', BANAN],
   ['Vojtaču', VOJTACU],
 ];
@@ -56,14 +53,14 @@ describe('projev podle situace', () => {
   });
 
   it('tušení prozradí jen jednou za hru', () => {
-    const p = new Projev(SOVA, () => 0.99);
+    const p = new Projev(VOJTACU, () => 0.99);
     const k = { ...obycejna, jistotaPred: JISTOTA_TUSENI, jistotaPo: JISTOTA_TUSENI + 0.05 };
-    expect(SOVA.tuseni).toContain(p.poOdpovedi(k)[0].text);
-    expect(p.poOdpovedi(k).some((r) => SOVA.tuseni.includes(r.text))).toBe(false);
+    expect(VOJTACU.tuseni).toContain(p.poOdpovedi(k)[0].text);
+    expect(p.poOdpovedi(k).some((r) => VOJTACU.tuseni.includes(r.text))).toBe(false);
   });
 
   it('blízko cíle je napjatá a připomene to jen občas', () => {
-    const p = new Projev(ZABAK, () => 0.99);
+    const p = new Projev(BANAN, () => 0.99);
     p.poOdpovedi({ ...obycejna, jistotaPo: JISTOTA_TUSENI }); // tušení
     const k = { ...obycejna, jistotaPred: JISTOTA_BLIZKO, jistotaPo: JISTOTA_BLIZKO + 0.05 };
     expect(p.poOdpovedi(k)[0].nalada).toBe('napeti');
@@ -72,11 +69,11 @@ describe('projev podle situace', () => {
   });
 
   it('první omyl ji zaskočí, další zklame', () => {
-    const p = new Projev(ROBOT);
+    const p = new Projev(LISKA);
     expect(p.omyl().nalada).toBe('prekvapeni');
     const druhy = p.omyl();
     expect(druhy.nalada).toBe('zklamani');
-    expect(ROBOT.omylZnovu).toContain(druhy.text);
+    expect(LISKA.omylZnovu).toContain(druhy.text);
   });
 
   it('výhra podle průběhu hry', () => {
@@ -89,13 +86,13 @@ describe('projev podle situace', () => {
   });
 
   it('tip doplní jméno zvířete malými písmeny', () => {
-    const r = new Projev(SOVA).tip('Lední medvěd', 0.99, 10);
+    const r = new Projev(VOJTACU).tip('Lední medvěd', 0.99, 10);
     expect(r.text).toContain('lední medvěd');
     expect(r.nalada).toBe('tipuje');
   });
 
   it('prohra je smutná', () => {
-    expect(new Projev(ZABAK).vzdavam().nalada).toBe('smutek');
+    expect(new Projev(BANAN).vzdavam().nalada).toBe('smutek');
   });
 });
 
@@ -132,11 +129,11 @@ describe('reakce na nadávky', () => {
   });
 
   it('reaguje podle toho, čím jí hráč nadává, a pak to vezme s nadhledem', () => {
-    const p = new Projev(SOVA);
-    expect(SOVA.nadavka.hluchota.map((r) => r.text)).toContain(p.nadavka('hluchota').text);
-    expect(SOVA.nadavka.hrubost.map((r) => r.text)).toContain(p.nadavka('hrubost').text);
-    expect(SOVA.nadavkaZnovu).toContain(p.nadavka('hloupost').text);
-    expect(SOVA.nadavka.hloupost.map((r) => r.text)).toContain(p.nadavka('hloupost').text);
+    const p = new Projev(VOJTACU);
+    expect(VOJTACU.nadavka.hluchota.map((r) => r.text)).toContain(p.nadavka('hluchota').text);
+    expect(VOJTACU.nadavka.hrubost.map((r) => r.text)).toContain(p.nadavka('hrubost').text);
+    expect(VOJTACU.nadavkaZnovu).toContain(p.nadavka('hloupost').text);
+    expect(VOJTACU.nadavka.hloupost.map((r) => r.text)).toContain(p.nadavka('hloupost').text);
   });
 });
 

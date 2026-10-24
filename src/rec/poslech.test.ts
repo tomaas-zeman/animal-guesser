@@ -250,7 +250,7 @@ describe('nadávky postavičce', () => {
     // "nejsi" by jinak bylo "ne", "je" by bylo "ano"
     expect(rozpoznejOdpoved(bezNadavek(['nejsi chytrá']))).toBe(null);
     expect(rozpoznejOdpoved(bezNadavek(['to je blbost']))).toBe(null);
-    expect(rozpoznejOdpoved(bezNadavek(['ty jsi hloupá sova']), 'Je to sova?')).toBe(null);
+    expect(rozpoznejOdpoved(bezNadavek(['ty jsi hloupá liško']), 'Je to sova?')).toBe(null);
     expect(rozpoznejOdpoved(bezNadavek(['neslyšíš']))).toBe(null);
   });
 

@@ -36,8 +36,8 @@ describe('nahrávky hlasů', () => {
       ['jmeno', 'liška.'],
       ['konec', 'že jo?'],
     ]);
-    expect(rozlozVetu('robot', 'Riskantní výpočet…')).toHaveLength(1);
-    expect(rozlozVetu('robot', 'kůň?').map((u) => u.druh)).toEqual(['jmeno']);
+    expect(rozlozVetu('banan', 'Banánová intuice říká…')).toHaveLength(1);
+    expect(rozlozVetu('banan', 'kůň?').map((u) => u.druh)).toEqual(['jmeno']);
     // neznámé zvíře zůstane celou větou (nahrané nebude, řekne ho syntéza)
     expect(rozlozVetu('liska', 'Je to drak?').map((u) => u.druh)).toEqual(['veta']);
   });
