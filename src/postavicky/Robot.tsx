@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Koule, Mat, Oboci, Podstavec, Tvaricka, useAnimace, type PostavickaProps } from './spolecne';
+import { jeNapjata, jeSmutna, jeVesela } from './emoce';
 
 const KOV = '#e6f0fb';
 const MODRA = '#4f8fd9';
@@ -35,12 +36,12 @@ export function Robot(props: PostavickaProps) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (anteny.current) {
-      const rychlost = props.nalada === 'premysli' ? 10 : 2;
+      const rychlost = props.nalada === 'premysli' || jeNapjata(props.nalada) ? 10 : props.nalada === 'prekvapeni' ? 20 : 2;
       anteny.current.emissiveIntensity = 0.8 + 0.7 * Math.sin(t * rychlost);
     }
     if (srdce.current) {
-      // srdíčko tluče, při radosti rychleji
-      const tep = props.nalada === 'radost' ? 8 : 3;
+      // srdíčko tluče, při radosti a napětí rychleji, ve smutku pomalu
+      const tep = jeVesela(props.nalada) || jeNapjata(props.nalada) ? 8 : jeSmutna(props.nalada) ? 1.5 : 3;
       const s = 1 + Math.pow(Math.max(0, Math.sin(t * tep)), 8) * 0.25;
       srdce.current.scale.setScalar(s);
     }
@@ -48,9 +49,15 @@ export function Robot(props: PostavickaProps) {
     if (ruce.current) {
       ruce.current.children.forEach((ruka, i) => {
         const s = i === 0 ? -1 : 1;
-        const zvednuti = props.nalada === 'radost' ? 2.4 + Math.sin(t * 10 + i) * 0.4 : 0;
+        const zvednuti = jeVesela(props.nalada)
+          ? 2.4 + Math.sin(t * 10 + i) * 0.4
+          : props.nalada === 'prekvapeni'
+            ? 0.9
+            : jeSmutna(props.nalada)
+              ? -0.12
+              : 0;
         ruka.rotation.z = s * (0.18 + zvednuti);
-        ruka.rotation.x = props.mluvi && props.nalada !== 'radost' ? Math.sin(t * 4 + i) * 0.25 : 0;
+        ruka.rotation.x = props.mluvi && !jeVesela(props.nalada) ? Math.sin(t * 4 + i) * 0.25 : 0;
       });
     }
   });

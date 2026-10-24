@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { Koule, Mat, Oboci, Oko, Podstavec, Pusa, Tvaricka, useAnimace, type PostavickaProps } from './spolecne';
+import { jeSmutna, jeVesela } from './emoce';
 
 const ZELENA = '#6cc75a';
 const TMAVA = '#4fa646';
@@ -30,9 +31,10 @@ export function Zabak(props: PostavickaProps) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (koruna.current) {
-      // korunka se jen lehce kymácí, při radosti poskočí
-      koruna.current.rotation.z = 0.15 + Math.sin(t * 2.3) * 0.06;
-      koruna.current.position.y = 0.48 + (props.nalada === 'radost' ? Math.abs(Math.sin(t * 6 + 0.6)) * 0.06 : 0);
+      // korunka se jen lehce kymácí, při radosti poskočí, ve smutku sklouzne na stranu
+      const naklon = jeSmutna(props.nalada) ? 0.35 : 0.15;
+      koruna.current.rotation.z = THREE.MathUtils.lerp(koruna.current.rotation.z, naklon + Math.sin(t * 2.3) * 0.06, 0.1);
+      koruna.current.position.y = 0.48 + (jeVesela(props.nalada) ? Math.abs(Math.sin(t * 6 + 0.6)) * 0.06 : 0);
     }
     if (vlnky.current) {
       vlnky.current.children.forEach((v, i) => {

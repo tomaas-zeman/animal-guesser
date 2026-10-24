@@ -2,8 +2,9 @@
 import { useFrame, type ThreeElements } from '@react-three/fiber';
 import { createContext, useContext, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { VYRAZY, jeNapjata, jeSmutna, jeVesela, type Nalada } from './emoce';
 
-export type Nalada = 'klid' | 'premysli' | 'tipuje' | 'radost' | 'smutek';
+export type { Nalada } from './emoce';
 
 export interface PostavickaProps {
   mluvi: boolean;
@@ -11,10 +12,12 @@ export interface PostavickaProps {
 }
 
 const lerp = THREE.MathUtils.lerp;
+const PLNA_OTOCKA = Math.PI * 2;
 
 /**
  * Animace těla: dýchání, poskakování, natáčení hlavy podle nálady, mrkání,
- * pohled očí, obočí a pohyb pusy. Vrací refy, které postavička připojí na své části.
+ * pohled očí, obočí a pohyb pusy. Výraz pro každou náladu je v `VYRAZY`.
+ * Vrací refy, které postavička připojí na své části.
  */
 export function useAnimace({ mluvi, nalada }: PostavickaProps) {
   const telo = useRef<THREE.Group>(null);
@@ -26,26 +29,42 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
   const dalsiMrknuti = useRef(2);
   const mrkaniDo = useRef(0);
   const pohled = useRef({ x: 0, y: 0, dalsi: 1 });
+  // kdy se nálada naposledy změnila, kvůli jednorázovým pohybům (piruetka, leknutí)
+  const zmena = useRef<{ nalada: Nalada | null; t: number }>({ nalada: null, t: 0 });
 
   useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime;
     const k = Math.min(1, dt * 6);
+    const v = VYRAZY[nalada];
+    if (zmena.current.nalada !== nalada) zmena.current = { nalada, t };
+    const odZmeny = t - zmena.current.t;
 
     if (telo.current) {
-      const radost = nalada === 'radost';
       // při radosti skáče a při dopadu se trochu zplácne, jinak jen dýchá
-      const skok = radost ? Math.abs(Math.sin(t * 6)) : 0;
-      const y = radost ? skok * 0.45 : Math.sin(t * 2) * 0.03;
-      telo.current.position.y = lerp(telo.current.position.y, y, radost ? 1 : k);
-      const zplacnuti = radost ? Math.pow(1 - skok, 6) * 0.14 : 0;
-      const dech = Math.sin(t * 2.2) * 0.018;
-      const sy = 1 + dech - zplacnuti + (radost ? skok * 0.05 : 0);
+      const skace = v.skok > 0;
+      const rychlostSkoku = nalada === 'oslava' ? 7 : 6;
+      const skok = skace ? Math.abs(Math.sin(t * rychlostSkoku)) : 0;
+      // leknutí: krátce povyskočí
+      const leknuti = nalada === 'prekvapeni' && odZmeny < 0.4 ? Math.sin((odZmeny / 0.4) * Math.PI) * 0.18 : 0;
+      const y = skace ? skok * v.skok : leknuti + Math.sin(t * 2) * 0.03;
+      telo.current.position.y = lerp(telo.current.position.y, y, skace || leknuti ? 1 : k);
+      const zplacnuti = skace ? Math.pow(1 - skok, 6) * 0.14 : 0;
+      // smutná postavička dýchá pomaleji a zhluboka (povzdech)
+      const dech = jeSmutna(nalada) ? Math.sin(t * 1.3) * 0.028 : Math.sin(t * 2.2) * 0.018;
+      const sy = 1 + dech - zplacnuti + (skace ? skok * 0.05 : 0);
       const sxz = 1 - dech * 0.6 + zplacnuti * 0.7;
       telo.current.scale.set(lerp(telo.current.scale.x, sxz, 0.5), lerp(telo.current.scale.y, sy, 0.5), lerp(telo.current.scale.z, sxz, 0.5));
-      const rotY = radost ? Math.sin(t * 3) * 0.5 : Math.sin(t * 0.7) * 0.12;
-      telo.current.rotation.y = lerp(telo.current.rotation.y, rotY, k);
-      const sklon = nalada === 'tipuje' ? 0.12 : nalada === 'smutek' ? 0.1 : 0;
-      telo.current.rotation.x = lerp(telo.current.rotation.x, sklon, k);
+
+      if (nalada === 'oslava' && odZmeny < 1.1) {
+        // na oslavu se jednou dokola zatočí
+        const f = odZmeny / 1.1;
+        telo.current.rotation.y = (f * f * (3 - 2 * f)) * PLNA_OTOCKA;
+      } else {
+        if (telo.current.rotation.y > Math.PI) telo.current.rotation.y -= PLNA_OTOCKA;
+        const rotY = skace ? Math.sin(t * 3) * 0.5 : Math.sin(t * 0.7) * 0.12;
+        telo.current.rotation.y = lerp(telo.current.rotation.y, rotY, k);
+      }
+      telo.current.rotation.x = lerp(telo.current.rotation.x, v.sklon, k);
       const kolebani = nalada === 'premysli' ? Math.sin(t * 1.4) * 0.05 : Math.sin(t * 1.1) * 0.02;
       telo.current.rotation.z = lerp(telo.current.rotation.z, kolebani, k);
     }
@@ -53,18 +72,16 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
     if (hlava.current) {
       let x = Math.sin(t * 1.3) * 0.04;
       let z = Math.sin(t * 0.9) * 0.05;
-      if (nalada === 'premysli') {
-        x = -0.25 + Math.sin(t * 1.5) * 0.05;
-        z = 0.22;
-      } else if (nalada === 'tipuje') {
-        x = 0.1;
-        z = Math.sin(t * 8) * 0.06;
-      } else if (nalada === 'smutek') {
-        x = 0.4;
-        z = -0.1;
-      } else if (mluvi) {
-        x += Math.sin(t * 7) * 0.05;
+      if (v.hlava) {
+        [x, z] = v.hlava;
+        if (nalada === 'premysli') x += Math.sin(t * 1.5) * 0.05;
+        if (nalada === 'zvedavost') z += Math.sin(t * 1.2) * 0.04;
+      } else if (jeVesela(nalada)) {
+        // radostné pokyvování
+        x = Math.sin(t * 6) * 0.08;
       }
+      if (v.chveni) z += Math.sin(t * 8) * v.chveni;
+      if (mluvi && !jeSmutna(nalada)) x += Math.sin(t * 7) * 0.05;
       hlava.current.rotation.x = lerp(hlava.current.rotation.x, x, k);
       hlava.current.rotation.z = lerp(hlava.current.rotation.z, z, k);
     }
@@ -72,11 +89,12 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
     if (oci.current) {
       if (t > dalsiMrknuti.current) {
         mrkaniDo.current = t + 0.13;
-        dalsiMrknuti.current = t + 2 + Math.random() * 3;
+        // v napětí mrká častěji, při údivu skoro vůbec
+        const mezera = jeNapjata(nalada) ? 1 + Math.random() * 1.5 : nalada === 'prekvapeni' ? 4 : 2 + Math.random() * 3;
+        dalsiMrknuti.current = t + mezera;
       }
       const mrka = t < mrkaniDo.current;
-      const cil = mrka ? 0.1 : nalada === 'radost' ? 0.55 : nalada === 'tipuje' ? 1.12 : nalada === 'smutek' ? 0.85 : 1;
-      oci.current.scale.y = lerp(oci.current.scale.y, cil, mrka ? 1 : k);
+      oci.current.scale.y = lerp(oci.current.scale.y, mrka ? 0.1 : v.oci, mrka ? 1 : k);
 
       // oči se občas rozhlédnou, při přemýšlení koukají nahoru do strany
       const p = pohled.current;
@@ -86,8 +104,7 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
         p.y = doKamery ? 0 : (Math.random() - 0.5) * 0.3;
         p.dalsi = t + 1 + Math.random() * 2.5;
       }
-      const [px, py] =
-        nalada === 'premysli' ? [0.35, 0.4] : nalada === 'smutek' ? [0, -0.35] : nalada === 'tipuje' ? [0, 0] : [p.x, p.y];
+      const [px, py] = v.pohled ?? [p.x, p.y];
       oci.current.traverse((o) => {
         const r = o.userData.zrak as number | undefined;
         if (r === undefined) return;
@@ -97,19 +114,8 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
     }
 
     if (oboci.current) {
-      // [zvednutí, natočení vnitřního konce nahoru] pro levé a pravé obočí
-      const [l, r]: [number, number][] =
-        nalada === 'premysli'
-          ? [[0.06, -0.1], [-0.01, 0.15]]
-          : nalada === 'tipuje'
-            ? [[0.05, 0], [0.05, 0]]
-            : nalada === 'radost'
-              ? [[0.06, -0.15], [0.06, -0.15]]
-              : nalada === 'smutek'
-                ? [[0.02, 0.4], [0.02, 0.4]]
-                : mluvi
-                  ? [[0.02 + Math.abs(Math.sin(t * 3)) * 0.02, 0], [0.02 + Math.abs(Math.sin(t * 3)) * 0.02, 0]]
-                  : [[0, 0], [0, 0]];
+      const pohup = 0.02 + Math.abs(Math.sin(t * 3)) * 0.02;
+      const [l, r] = v.oboci ?? (mluvi ? [[pohup, 0], [pohup, 0]] : [[0, 0], [0, 0]]);
       oboci.current.children.forEach((o, i) => {
         const [zvednuti, natoceni] = i === 0 ? l : r;
         const zaklad = (o.userData.y as number) ?? 0;
@@ -120,24 +126,17 @@ export function useAnimace({ mluvi, nalada }: PostavickaProps) {
 
     const maUsmev = Boolean(usmev.current);
     if (pusa.current) {
-      const cil = mluvi
-        ? 0.25 + 0.75 * Math.abs(Math.sin(t * 13)) * (0.6 + 0.4 * Math.sin(t * 4.7))
-        : nalada === 'radost'
-          ? 0.9
-          : nalada === 'smutek'
-            ? maUsmev
-              ? 0
-              : 0.12
-            : maUsmev
-              ? 0
-              : 0.2;
+      // postavička bez úsměvu má pusu pořád trochu otevřenou
+      const vKlidu = maUsmev ? v.pusa : Math.max(v.pusa, v.usmev < 0 ? 0.12 : 0.2);
+      // smutná mluví s menší pusou, veselá s větší
+      const rozsah = jeSmutna(nalada) ? 0.55 : jeVesela(nalada) ? 1.1 : 0.75;
+      const cil = mluvi ? 0.25 + rozsah * Math.abs(Math.sin(t * 13)) * (0.6 + 0.4 * Math.sin(t * 4.7)) : vKlidu;
       pusa.current.scale.y = lerp(pusa.current.scale.y, cil, Math.min(1, dt * 18));
       if (maUsmev) pusa.current.visible = pusa.current.scale.y > 0.06;
     }
     if (usmev.current) {
       // zavřená pusa je úsměv, při smutku se obrátí, při přemýšlení se narovná
-      const tvar = nalada === 'smutek' ? -0.7 : nalada === 'premysli' ? 0.25 : 1;
-      usmev.current.scale.y = lerp(usmev.current.scale.y, tvar, k);
+      usmev.current.scale.y = lerp(usmev.current.scale.y, v.usmev, k);
       usmev.current.visible = !pusa.current || pusa.current.scale.y < 0.3;
     }
   });
