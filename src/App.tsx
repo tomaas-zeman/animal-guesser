@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import db from './data/zvirata.json';
 import { Hra, type Databaze, type Odpoved, type Tah } from './game/engine';
-import { POSTAVICKY, nahodne } from './postavicky';
-import type { Nalada } from './postavicky/spolecne';
+import { POSTAVICKY } from './postavicky';
+import { VYRAZY, type Nalada } from './postavicky/emoce';
+import { Projev, type Replika } from './postavicky/projev';
 import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
 import { jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import {
@@ -36,6 +37,8 @@ const pockej = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** chvilka "přemýšlení", než postavička začne mluvit */
 const PAUZA_PRED = 400;
+/** přemýšlení pokaždé trochu jinak dlouhé, ať to nezní jako stroj */
+const premysleni = () => PAUZA_PRED + Math.random() * 350;
 /** nádech mezi reakcí a další otázkou */
 const PAUZA_MEZI = 350;
 /** jak dlouho nejvýš poslouchá, když hráč mlčí; pak zůstane tlačítko 🎤 */
@@ -59,7 +62,7 @@ export default function App() {
   // každá akce hráče zvýší generaci, aby starý rozběhnutý průběh (mluvení, poslech) skončil
   const generace = useRef(0);
   const zrusPoslech = useRef<() => void>(() => {});
-  const reklTuseni = useRef(false);
+  const projev = useRef<Projev | null>(null);
   /** poslední otázka nebo tip, aby ji šlo na požádání zopakovat */
   const posledniOtazka = useRef('');
   const nastaveniRef = useRef({ mikrofon, ztlumeno });
@@ -85,15 +88,21 @@ export default function App() {
     return generace.current;
   };
 
-  const mluv = useCallback(async (text: string, gen: number) => {
+  /** Řekne text. Replika navíc nastaví emoci obličeje a hlasu. */
+  const mluv = useCallback(async (co: string | Replika, gen: number) => {
     if (gen !== generace.current) return false;
+    const text = typeof co === 'string' ? co : co.text;
+    const ladeni = typeof co === 'string' ? undefined : VYRAZY[co.nalada].hlas;
+    if (typeof co !== 'string') setNalada(co.nalada);
     setBublina(text);
     setMluvi(true);
-    await rekni(text, postavicka.hlas, nastaveniRef.current.ztlumeno);
+    await rekni(text, postavicka.hlas, nastaveniRef.current.ztlumeno, ladeni);
     if (gen !== generace.current) return false;
     setMluvi(false);
     return true;
   }, [postavicka]);
+
+  const dejProjev = () => (projev.current ??= new Projev(postavicka.hlasky));
 
   // dopředná deklarace kvůli vzájemnému volání
   const odpovezRef = useRef<(o: Odpoved) => void>(() => {});
@@ -184,7 +193,7 @@ export default function App() {
           }
           setSlyseno(texty[0]);
           if (!odpoved && jeZopakuj(texty)) {
-            await pockej(PAUZA_PRED);
+            await pockej(premysleni());
             await mluv(posledniOtazka.current, gen);
             return false;
           }
@@ -195,50 +204,46 @@ export default function App() {
           return true;
         }
         nerozumi++;
-        await pockej(PAUZA_PRED);
+        await pockej(premysleni());
         // napoví až po několika nezdarech, a krátce, ať to nezdržuje
         const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ' Řekni ano, nebo ne.' : ' Řekni ano, ne, nebo nevím.';
-        await mluv(nahodne(postavicka.hlasky.nerozumim) + napoveda, gen);
+        const r = dejProjev().nerozumim();
+        await mluv({ ...r, text: r.text + napoveda }, gen);
         return false;
       });
     },
     [mluv, poslouchejPorad, postavicka],
   );
 
-  const dalsiTah = useCallback(async (gen: number, reakce = '') => {
+  const dalsiTah = useCallback(async (gen: number, repliky: Replika[] = []) => {
     const h = hra.current;
     if (!h) return;
+    const p = dejProjev();
+    // nejdřív zareaguje na odpověď, a teprve pak přemýšlí, co dál
+    for (const r of repliky) {
+      if (!(await mluv(r, gen))) return;
+      await pockej(PAUZA_MEZI);
+      if (gen !== generace.current) return;
+    }
     const t = h.dalsiTah();
     setNalada(t.typ === 'vzdavam' ? 'smutek' : 'premysli');
     setBublina('…');
-    await pockej(PAUZA_PRED);
+    await pockej(premysleni());
     if (gen !== generace.current) return;
 
     if (t.typ === 'otazka') {
-      // jednou za hru prozradí, že už má favorita
-      let uvod = reakce;
-      if (!reklTuseni.current && (h.poradi()[0]?.pst ?? 0) >= 0.3) {
-        reklTuseni.current = true;
-        uvod = nahodne(postavicka.hlasky.tuseni);
-      }
-      setNalada('klid');
-      if (uvod) {
-        if (!(await mluv(uvod, gen))) return;
-        await pockej(PAUZA_MEZI);
-        if (gen !== generace.current) return;
-      }
       setTah(t);
       posledniOtazka.current = t.text;
-      if (await mluv(t.text, gen)) poslouchejOdpoved(gen);
+      const nalada = p.naladaOtazky(h.poradi()[0]?.pst ?? 0);
+      if (await mluv({ text: t.text, nalada }, gen)) poslouchejOdpoved(gen);
     } else if (t.typ === 'tip') {
       setTah(t);
-      setNalada('tipuje');
-      const veta = nahodne(postavicka.hlasky.tip).replace('{z}', t.zvire.jmeno.toLowerCase());
-      posledniOtazka.current = veta;
-      if (await mluv(veta, gen)) poslouchejOdpoved(gen, true);
+      const r = p.tip(t.zvire.jmeno, t.jistota, h.pocetOtazek);
+      posledniOtazka.current = r.text;
+      if (await mluv(r, gen)) poslouchejOdpoved(gen, true);
     } else {
       setFaze('vzdavam');
-      if (await mluv(postavicka.hlasky.vzdavam, gen)) cekejNaStartRef.current(gen);
+      if (await mluv(p.vzdavam(), gen)) cekejNaStartRef.current(gen);
     }
   }, [mluv, poslouchejOdpoved, postavicka]);
 
@@ -248,22 +253,30 @@ export default function App() {
     const gen = prerus();
     // tlačítka zmizí, dokud postavička nepoloží další otázku
     setTah(null);
+    const p = dejProjev();
     if (tah.typ === 'otazka') {
+      const ocekavaneAno = h.ocekavaneAno(tah.id);
+      const jistotaPred = h.poradi()[0]?.pst ?? 0;
       h.odpovez(tah.id, o);
-      // reaguje skoro vždycky, ale ne pokaždé, aby to neznělo naučeně
-      dalsiTah(gen, Math.random() < 0.75 ? nahodne(postavicka.hlasky.reakce[o]) : '');
+      const jistotaPo = h.poradi()[0]?.pst ?? 0;
+      dalsiTah(gen, p.poOdpovedi({ odpoved: o, pocetOtazek: h.pocetOtazek, ocekavaneAno, jistotaPred, jistotaPo }));
     } else if (tah.typ === 'tip') {
       if (o === 'ano') {
         setTah(tah); // nechá v bublině obrázek uhodnutého zvířete
         setFaze('vyhra');
-        setNalada('radost');
+        setNalada('oslava');
         await pockej(PAUZA_MEZI);
-        if (await mluv(nahodne(postavicka.hlasky.vyhra), gen)) cekejNaStartRef.current(gen);
+        if (!(await mluv(p.vyhra(h.pocetOtazek), gen))) return;
+        await pockej(PAUZA_MEZI);
+        const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ' Řekni: hra!' : '';
+        const r = p.znovu();
+        if (await mluv({ ...r, text: r.text + vyzva }, gen)) cekejNaStartRef.current(gen);
       } else {
         h.vyhodnotTip(tah.index, false);
-        setNalada('smutek');
+        const r = p.omyl();
+        setNalada(r.nalada);
         await pockej(PAUZA_PRED);
-        if (await mluv(nahodne(postavicka.hlasky.omyl), gen)) dalsiTah(gen);
+        if (await mluv(r, gen)) dalsiTah(gen);
       }
     }
   }, [tah, faze, dalsiTah, mluv, postavicka]);
@@ -290,23 +303,23 @@ export default function App() {
 
   const vyberPostavicku = async () => {
     const gen = prerus();
+    projev.current = new Projev(postavicka.hlasky);
     setFaze('uvod');
-    setNalada('radost');
     setTimeout(() => gen === generace.current && setNalada('klid'), 1200);
     const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ' Až ho budeš mít, řekni: hra!' : '';
-    if (await mluv(postavicka.hlasky.uvod + vyzva, gen)) cekejNaStart(gen);
+    const r = projev.current.uvod();
+    if (await mluv({ ...r, text: r.text + vyzva }, gen)) cekejNaStart(gen);
   };
 
   const zacni = async () => {
     const gen = prerus();
     if (nastaveniRef.current.mikrofon && poslechDostupny) zapniMereni();
     hra.current = new Hra(databaze);
-    reklTuseni.current = false;
+    projev.current = new Projev(postavicka.hlasky);
     setTah(null);
     setSlyseno('');
     setFaze('hra');
-    setNalada('klid');
-    if (await mluv(nahodne(postavicka.hlasky.zacatek), gen)) dalsiTah(gen);
+    if (await mluv(projev.current.zacatek(), gen)) dalsiTah(gen);
   };
 
   const zacniRef = useRef(zacni);
@@ -315,6 +328,7 @@ export default function App() {
   const zpetNaVyber = () => {
     prerus();
     hra.current = null;
+    projev.current = null;
     setTah(null);
     setBublina('');
     setNalada('klid');
