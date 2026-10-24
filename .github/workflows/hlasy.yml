@@ -1,6 +1,6 @@
 name: Namluvit hlasy
 
-# Namluví chybějící věty postaviček: s secretem GOOGLE_TTS_KEY hlasy Google Chirp 3 HD,
+# Namluví chybějící věty postaviček: se secretem TTS_API_KEY hlasy Google Chirp 3 HD,
 # bez něj neuronovými hlasy Microsoft Edge (zdarma, bez klíče). Hlasy jsou v scripts/hlasy-tts.json.
 # a nahrávky commitne do větve, na které běží. Každá postavička běží ve vlastním jobu
 # (jiný stroj, souběžně). Namlouvá se jen rozdíl: věty, které nahrávku ještě nemají;
@@ -64,8 +64,8 @@ jobs:
         timeout-minutes: 60
         env:
           PREPSAT: ${{ inputs.prepsat }}
-          # s klíčem v secrets namlouvá Google (Chirp 3 HD), bez něj zdarma Edge
-          GOOGLE_TTS_KEY: ${{ secrets.GOOGLE_TTS_KEY }}
+          # s klíčem v secrets (TTS_API_KEY) namlouvá Google (Chirp 3 HD), bez něj zdarma Edge
+          GOOGLE_TTS_KEY: ${{ secrets.TTS_API_KEY || secrets.GOOGLE_TTS_KEY }}
         run: |
           sluzba=$([ -n "$GOOGLE_TTS_KEY" ] && echo google || echo edge)
           echo "Služba: $sluzba"
