@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [master, claude/project-thread-k8vvea]
+    branches: [master]
     paths:
       - src/postavicky/hlasky.ts
       - src/data/zvirata.json
@@ -59,6 +59,8 @@ jobs:
           pip install --upgrade edge-tts
       - name: Namluvit
         if: inputs.postava == '' || inputs.postava == matrix.postava
+        # co se nestihne, doplní příští běh (namlouvá se jen to, co chybí)
+        timeout-minutes: 60
         env:
           PREPSAT: ${{ inputs.prepsat }}
         run: npm run hlasy:tts -- edge --postava ${{ matrix.postava }} $([ "$PREPSAT" = "true" ] && echo --prepsat)
@@ -73,8 +75,8 @@ jobs:
 
   commit:
     needs: namluvit
-    # i když se některá postavička nepovedla, ostatní se uloží
-    if: ${{ !cancelled() }}
+    # i když se některá postavička nepovedla nebo se běh zrušil, co je hotové, se uloží
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

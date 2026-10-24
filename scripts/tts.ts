@@ -160,6 +160,7 @@ for (const postava of postavy) {
   mkdirSync(slozka, { recursive: true });
   // pár požadavků najednou, ať to netrvá věčnost, ale služba nezačne odmítat
   let dalsi = 0;
+  let zaSebou = 0;
   const pracovnik = async () => {
     while (dalsi < fronta.length) {
       const u = fronta[dalsi++];
@@ -169,7 +170,8 @@ for (const postava of postavy) {
           writeFileSync(join(slozka, `${u.id}.mp3`), Buffer.from(audio));
           celkem++;
           znaku += u.text.length;
-          if (celkem % 25 === 0) console.log(`  … ${celkem}`);
+          zaSebou = 0;
+          if (celkem % 25 === 0) console.log(`  … ${celkem} (chyb ${chyby.length})`);
           break;
         } catch (e) {
           // Edge při zahlcení vrací prázdné audio: chvíli počkat a zkusit znovu
@@ -181,6 +183,11 @@ for (const postava of postavy) {
           chyby.push(`${postava}/${u.id} „${textProTts(u)}“: ${(e as Error).message.split('\n').filter(Boolean).at(-1)}`);
           console.warn(`  ✗ ${chyby.at(-1)}`);
           if (chyby.length >= 20 && celkem === 0) throw new Error('Nic se nepovedlo namluvit, končím.');
+          // služba nás nejspíš zablokovala: radši skončit, co je hotové, se uloží a zbytek doplní příští běh
+          if (++zaSebou >= 12) {
+            console.warn(`  ${zaSebou} chyb za sebou, končím s ${postava}.`);
+            dalsi = fronta.length;
+          }
           break;
         }
       }
