@@ -19,6 +19,24 @@ describe('rozpoznání odpovědi z řeči', () => {
     ['no jo', 'ano'],
     ['ani náhodou', 'ne'],
     ['banán', null],
+    // "ne" v podobách, jak ho rozpoznávání opravdu přepisuje
+    ['NE!', 'ne'],
+    ['Né.', 'ne'],
+    ['neee', 'ne'],
+    ['nene', 'ne'],
+    ['ne ne ne', 'ne'],
+    ['no ne', 'ne'],
+    ['to ne', 'ne'],
+    ['vůbec ne', 'ne'],
+    ['nemá', 'ne'],
+    ['neumí', 'ne'],
+    ['nikoliv', 'ne'],
+    ['N', 'ne'],
+    ['mně', 'ne'],
+    ['neh', 'ne'],
+    ['mně ano', 'ano'],
+    ['no jo', 'ano'],
+    ['no', null],
   ];
   for (const [text, cekam] of pripady) {
     it(`"${text}" → ${cekam}`, () => expect(rozpoznejOdpoved([text])).toBe(cekam));
@@ -37,7 +55,7 @@ describe('hovor okolo, opakování a start', () => {
     expect(jeHovorOkolo(['ano'])).toBe(false);
   });
 
-  for (const text of ['zopakuj to', 'Cože?', 'co prosím', 'můžeš to zopakovat', 'ještě jednou', 'co']) {
+  for (const text of ['zopakuj to', 'Cože?', 'co prosím', 'můžeš to zopakovat', 'ještě jednou', 'co', 'nerozumím']) {
     it(`"${text}" → zopakovat`, () => expect(jeZopakuj([text])).toBe(true));
   }
   for (const text of ['ano', 'ne', 'nevím', 'co to je za zvíře v té knížce u babičky']) {

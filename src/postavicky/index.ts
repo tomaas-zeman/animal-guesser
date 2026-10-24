@@ -14,7 +14,8 @@ export interface Hlasky {
   vyhra: string[];
   omyl: string[];
   vzdavam: string;
-  nerozumim: string;
+  /** krátké, ať hráče nezdržuje; vybírá se náhodně a neopakuje se po sobě */
+  nerozumim: string[];
   /** krátká reakce na odpověď, řekne ji před další otázkou */
   reakce: Record<Odpoved, string[]>;
   /** když už má favorita */
@@ -48,11 +49,11 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Hurá! Uhodla jsem to!', 'Liška je prostě mazaná! Hrajeme znovu?'],
       omyl: ['Hmm, tak to ne. Budu se ptát dál.', 'Aha, vedle. Ale nevzdávám se!'],
       vzdavam: 'Tohle je na mě moc těžké! Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Promiň, nerozuměla jsem. Můžeš to prosím zopakovat?',
+      nerozumim: ['Cože?', 'Promiň?', 'Ještě jednou?', 'Nerozuměla jsem.', 'Hm?'],
       reakce: {
         ano: ['Ahaaa, chápu.', 'Aha!', 'Výborně.', 'To se hodí.', 'Jasně, jasně.'],
         ne: ['Hmm, dobře.', 'Aha, tak to ne.', 'Jasně.', 'Hmm.'],
-        nevim: ['Nevadí.', 'To nic.', 'Dobře, zkusím to jinak.'],
+        nevim: ['Nevadí.', 'To nic.', 'Dobře.'],
         mozna: ['Hmm, zajímavé.', 'Aha, možná…', 'Hmm, dobře.'],
       },
       tuseni: ['Už mám takové tušení…', 'Můj nosánek už něco cítí…'],
@@ -73,11 +74,11 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Píp píp! Správně! Mise splněna!', 'Úspěch! Robík vyhrál. Další hra?'],
       omyl: ['Chyba v obvodech. Pokračuji v hledání.', 'Nesprávně. Přepočítávám.'],
       vzdavam: 'Chyba. Neznámé zvíře. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Nerozpoznal jsem odpověď. Můžeš to prosím zopakovat?',
+      nerozumim: ['Píp? Znovu.', 'Nerozpoznáno.', 'Opakuj, prosím.', 'Chyba příjmu. Ještě jednou?'],
       reakce: {
         ano: ['Ukládám. Ano.', 'Zaznamenáno.', 'Píp. Rozumím.', 'Výborně.'],
         ne: ['Zaznamenáno. Ne.', 'Rozumím.', 'Píp. Dobře.'],
-        nevim: ['Nevadí. Přeskakuji.', 'V pořádku.'],
+        nevim: ['Přeskakuji.', 'V pořádku.', 'Nevadí.'],
         mozna: ['Zpracovávám… Zajímavé.', 'Hmm. Rozumím.'],
       },
       tuseni: ['Pravděpodobnost roste…', 'Mé obvody něco tuší…'],
@@ -98,11 +99,11 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Hú hú! Moudrost zvítězila!', 'Věděla jsem to! Zahrajeme si ještě?'],
       omyl: ['Hú, to mě překvapilo. Ptám se dál.', 'Ani sova neví všechno hned. Pokračujeme.'],
       vzdavam: 'Hú hú, tohle v mých knížkách není. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Hú? Nerozuměla jsem. Můžeš to prosím zopakovat?',
+      nerozumim: ['Hú?', 'Prosím?', 'Ještě jednou?', 'Nerozuměla jsem.'],
       reakce: {
         ano: ['Ahaaa, hú hú.', 'Zajímavé.', 'Přesně jak jsem myslela.', 'Aha!'],
         ne: ['Hmm, dobře.', 'Tak to ne, rozumím.', 'Aha.'],
-        nevim: ['To nevadí.', 'I sova občas neví.'],
+        nevim: ['Nevadí.', 'To nic.', 'Dobře.'],
         mozna: ['Hmm, to je zajímavé.', 'Aha, možná…'],
       },
       tuseni: ['Hú, už mi to začíná docházet…', 'Mám takové moudré tušení…'],
@@ -123,11 +124,11 @@ export const POSTAVICKY: Postavicka[] = [
       vyhra: ['Kvák kvák! Uhodl jsem!', 'Hurá, skáču radostí! Ještě jednou?'],
       omyl: ['Kvák, to ne? Tak hádám dál.', 'Žbluňk, vedle. Zkusím to znovu.'],
       vzdavam: 'Kvák, to nevím. Vzdávám se. Jaké zvíře to bylo?',
-      nerozumim: 'Kvák? Nerozuměl jsem. Můžeš to prosím zopakovat?',
+      nerozumim: ['Kvák?', 'Cože?', 'Ještě jednou?', 'Nerozuměl jsem.'],
       reakce: {
         ano: ['Kvák, chápu!', 'Ahaaa!', 'Super!', 'Jasně!'],
         ne: ['Hmm, kvák.', 'Aha, tak ne.', 'Dobře.'],
-        nevim: ['Nevadí, kvák.', 'To nic.'],
+        nevim: ['Nevadí.', 'To nic, kvák.', 'Dobře.'],
         mozna: ['Hmm, možná…', 'Kvák, zajímavé.'],
       },
       tuseni: ['Kvák, už něco tuším…', 'Už jsem blízko, kvák!'],
@@ -135,6 +136,13 @@ export const POSTAVICKY: Postavicka[] = [
   },
 ];
 
+const posledni = new WeakMap<object, unknown>();
+
+/** Náhodná položka; tutéž hlášku neřekne dvakrát po sobě. */
 export function nahodne<T>(pole: T[]): T {
-  return pole[Math.floor(Math.random() * pole.length)];
+  const minula = posledni.get(pole);
+  const moznosti = pole.length > 1 ? pole.filter((x) => x !== minula) : pole;
+  const vyber = moznosti[Math.floor(Math.random() * moznosti.length)];
+  posledni.set(pole, vyber);
+  return vyber;
 }

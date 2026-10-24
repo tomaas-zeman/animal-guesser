@@ -2,7 +2,7 @@
 import type { Odpoved } from '../game/engine';
 
 interface Vysledek {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>;
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>;
 }
 
 interface Rozpoznavac {
@@ -51,19 +51,23 @@ export function poslouchej(): Poslech {
   const r = new Trida();
   r.lang = 'cs-CZ';
   r.continuous = false;
-  r.interimResults = false;
+  // průběžné přepisy jsou pojistka: krátké "ne" Chrome často zachytí jen průběžně a finální výsledek nepošle
+  r.interimResults = true;
   r.maxAlternatives = 5;
   const zacatek = Date.now();
   let pojistka: ReturnType<typeof setTimeout> | undefined;
 
   const vysledek = new Promise<Slyseni>((resolve, reject) => {
     let texty: string[] = [];
+    let prubezne: string[] = [];
     let chyba: string | undefined;
     r.onresult = (e) => {
       texty = [];
+      prubezne = [];
       for (let i = 0; i < e.results.length; i++) {
         const alt = e.results[i];
-        for (let j = 0; j < alt.length; j++) texty.push(alt[j].transcript);
+        const cil = alt.isFinal === false ? prubezne : texty;
+        for (let j = 0; j < alt.length; j++) cil.push(alt[j].transcript);
       }
     };
     r.onerror = (e) => {
@@ -74,7 +78,8 @@ export function poslouchej(): Poslech {
     };
     r.onend = () => {
       clearTimeout(pojistka);
-      resolve({ texty: texty.filter((t) => t.trim()), chyba, trvani: Date.now() - zacatek });
+      const vse = (texty.some((t) => t.trim()) ? texty : prubezne).filter((t) => t.trim());
+      resolve({ texty: vse, chyba: vse.length ? undefined : chyba, trvani: Date.now() - zacatek });
     };
   });
 
@@ -107,7 +112,11 @@ function normalizuj(text: string): string {
 // Pořadí je důležité: "nevím" obsahuje "ne", "spíš ne" je ne a ne "možná".
 const VZORY: [Odpoved, RegExp][] = [
   ['nevim', /\b(nevim|netusim|nemam tuseni|nevim jiste|nejsem si jist[aey]?|kdo vi|nevi)\b/],
-  ['ne', /\b(spis ne|asi ne|myslim ze ne|ani nahodou|v zadnem pripade|ne|nene|ne ne|neni|nema|nemuze|nikdy|vubec|kdepak|nee+)\b/],
+  // "ne" je krátké a rozpoznávání ho přepisuje všelijak: "Né.", "neee", "nene", "ne ne ne", "mně", "nein"…
+  [
+    'ne',
+    /\b(spis ne|asi ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|neni|nema|nemuze|nezije|neumi|nikdy|vubec|kdepak|nikoliv|nope|nein)\b|^(n+|mne)$/,
+  ],
   ['mozna', /\b(mozna|muze byt|muze|nekdy|asi|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
   ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
 ];
@@ -125,7 +134,7 @@ export function jeHovorOkolo(texty: string[]): boolean {
 }
 
 const ZOPAKUJ =
-  /\b(zopakuj|zopakujes|zopakovat|opakuj|znovu|jeste jednou|coze|co prosim|cos rikal[a]?|co jsi rikal[a]?|nerozumel jsem|nerozumela jsem|neslysel jsem|neslysela jsem|prosim)\b|^co$/;
+  /\b(zopakuj|zopakujes|zopakovat|opakuj|znovu|jeste jednou|coze|co prosim|cos rikal[a]?|co jsi rikal[a]?|nerozumim|nerozumel jsem|nerozumela jsem|neslysel jsem|neslysela jsem|prosim)\b|^co$/;
 
 /** Chce hráč otázku zopakovat? ("zopakuj to", "cože", "co prosím"…) */
 export function jeZopakuj(texty: string[]): boolean {
