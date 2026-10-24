@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       postava:
-        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan), prázdné = všechny'
+        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan, vojtachu), prázdné = všechny'
         required: false
         default: ''
       prepsat:
@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [master, claude/project-thread-gvdlij]
+    branches: [master, claude/project-thread-k8vvea]
     paths:
       - src/postavicky/hlasky.ts
       - src/data/zvirata.json
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        postava: [liska, robot, sova, zabak, banan]
+        postava: [liska, robot, sova, zabak, banan, vojtachu]
     steps:
       - uses: actions/checkout@v4
         if: inputs.postava == '' || inputs.postava == matrix.postava
