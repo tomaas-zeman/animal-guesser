@@ -18,12 +18,13 @@
     "vojtacu": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+15%", "tempo": "+5%" }
   },
   "google": {
-    "liska": { "hlas": "cs-CZ-Chirp3-HD-Aoede" },
+    "_poznamka": "Chirp 3 HD nemá dětské hlasy ani výšku, vybrané jsou nejmladší a nejživější: Leda (mladistvá), Fenrir (rozjívený), Achird (přátelský).",
+    "liska": { "hlas": "cs-CZ-Chirp3-HD-Leda", "tempo": 1.08 },
     "robot": { "hlas": "cs-CZ-Chirp3-HD-Charon", "tempo": 0.92 },
     "sova": { "hlas": "cs-CZ-Chirp3-HD-Kore", "tempo": 0.92 },
     "zabak": { "hlas": "cs-CZ-Chirp3-HD-Puck" },
-    "banan": { "hlas": "cs-CZ-Chirp3-HD-Fenrir", "tempo": 1.06 },
-    "vojtacu": { "hlas": "cs-CZ-Chirp3-HD-Puck", "tempo": 1.05 }
+    "banan": { "hlas": "cs-CZ-Chirp3-HD-Fenrir", "tempo": 1.1 },
+    "vojtacu": { "hlas": "cs-CZ-Chirp3-HD-Achird", "tempo": 1.03 }
   },
   "elevenlabs": {
     "_poznamka": "Doplň voice_id hlasů z knihovny ElevenLabs (https://elevenlabs.io/app/voice-library).",
