@@ -18,6 +18,10 @@ on:
         description: 'Namluvit znovu i to, co už nahrané je (např. po změně hlasu)'
         type: boolean
         default: false
+      porovnani:
+        description: 'Jen porovnat hlasy: zkušební věta několika hlasy ke stažení (nic se necommitne)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -28,7 +32,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  porovnat:
+    if: inputs.porovnani
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          npm ci
+          pip install --upgrade edge-tts
+      - env:
+          GOOGLE_TTS_KEY: ${{ secrets.TTS_API_KEY || secrets.GOOGLE_TTS_KEY }}
+        run: npm run hlasy:tts -- --porovnani
+      - uses: actions/upload-artifact@v4
+        with:
+          name: porovnani-hlasu
+          path: porovnani/
+          retention-days: 7
+
   namluvit:
+    if: ${{ !inputs.porovnani }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,7 +104,7 @@ jobs:
   commit:
     needs: namluvit
     # i když se některá postavička nepovedla nebo se běh zrušil, co je hotové, se uloží
-    if: always()
+    if: always() && !inputs.porovnani
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

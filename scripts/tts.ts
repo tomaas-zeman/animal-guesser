@@ -10,7 +10,7 @@
 //   ELEVENLABS_API_KEY=… npm run hlasy:tts -- elevenlabs --postava banan --limit 20
 //
 // Přepínače: --postava <id> (jinak všechny), --limit <n> (na zkoušku), --prepsat (i už nahrané),
-// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou, TTS_ZA_MINUTU=<n> strop za minutu (Google výchozí 30). --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
+// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou, TTS_ZA_MINUTU=<n> strop za minutu (Google výchozí 30). --porovnani (zkušební věta několika hlasy do porovnani/), --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,10 +32,11 @@ const { values, positionals } = parseArgs({
     limit: { type: 'string' },
     prepsat: { type: 'boolean', default: false },
     zkouska: { type: 'boolean', default: false },
+    porovnani: { type: 'boolean', default: false },
   },
 });
 
-const sluzba = positionals[0];
+const sluzba = positionals[0] ?? (values.porovnani ? 'edge' : '');
 const koren = join(import.meta.dirname, '..');
 const nastaveni = JSON.parse(readFileSync(join(import.meta.dirname, 'hlasy-tts.json'), 'utf8'));
 if (!['edge', 'azure', 'google', 'elevenlabs'].includes(sluzba)) {
@@ -124,6 +125,35 @@ async function edge(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
 
 const SLUZBY = { edge, azure, google, elevenlabs };
 
+/** Věta s problematickými slovy (c, ch, ř, ě, ď, ť, ň, souhlásky) na porovnání výslovnosti hlasů. */
+const ZKUSEBNI_VETA =
+  'Má ocas? Ocásek, ocasem, konec, procent, Cože? Je to čáp, ještěrka, ježek, křeček, kočka, cvrček, chobotnice, ' +
+  'chameleon, tchoř, kůň, šimpanz, čolek, štika, labuť, okoun, vydra, sýkorka, ťuhýk, pštros, užovka, hroznýš, ' +
+  'nosorožec, tučňák, srnec, zajíc, dikobraz, žralok, medvěd, rys ostrovid, dělá, děti, ďábel, nevím, může být.';
+
+// porovnání: zkušební věta několika hlasy (seznam v scripts/hlasy-tts.json „porovnani“) do složky porovnani/
+if (values.porovnani) {
+  const slozka = join(koren, 'porovnani');
+  mkdirSync(slozka, { recursive: true });
+  if (process.env.GOOGLE_TTS_KEY) {
+    const r = await fetch(`https://texttospeech.googleapis.com/v1/voices?languageCode=cs-CZ&key=${process.env.GOOGLE_TTS_KEY}`);
+    const { voices = [] } = r.ok ? ((await r.json()) as { voices?: { name: string; ssmlGender: string }[] }) : {};
+    console.log(`Google cs-CZ hlasy: ${voices.map((v) => `${v.name} (${v.ssmlGender})`).join(', ') || r.status}`);
+  }
+  const kandidati = nastaveni.porovnani as { sluzba: keyof typeof SLUZBY; hlas: string; vyska?: string; tempo?: number | string }[];
+  for (const [i, k] of kandidati.entries()) {
+    if (k.sluzba === 'google' && !process.env.GOOGLE_TTS_KEY) continue;
+    const jmeno = `${String(i + 1).padStart(2, '0')}-${k.hlas}.mp3`;
+    try {
+      writeFileSync(join(slozka, jmeno), Buffer.from(await SLUZBY[k.sluzba](ZKUSEBNI_VETA, k)));
+      console.log(`✓ ${jmeno}`);
+    } catch (e) {
+      console.warn(`✗ ${k.hlas}: ${(e as Error).message.slice(0, 200)}`);
+    }
+  }
+  process.exit(0);
+}
+
 const postavy = values.postava ? [values.postava] : Object.keys(HLASKY);
 const limit = values.limit ? Number(values.limit) : Infinity;
 let celkem = 0;
@@ -138,16 +168,23 @@ for (const postava of postavy) {
   }
   const slozka = join(koren, 'public', 'hlasy', postava);
   const existujici = new Set(existsSync(slozka) ? readdirSync(slozka).map((s) => s.split('.')[0]) : []);
+  // čím byla která nahrávka namluvená (služba, hlas, nastavení, text): co nesedí s dneškem, namluví se
+  // znovu, takže postavička mluví pořád stejným hlasem, i když se mezitím hlas změnil
+  const soubZdroj = join(slozka, 'zdroj.json');
+  const zdroj: Record<string, string> = existsSync(soubZdroj) ? JSON.parse(readFileSync(soubZdroj, 'utf8')) : {};
+  const podpis = (u: Usek) => JSON.stringify([sluzba, h, textProTts(u)]);
+  const ulozZdroj = () => writeFileSync(soubZdroj, `${JSON.stringify(zdroj, null, 1)}\n`);
   const vsechny = vsechnyUseky(postava);
   // nahrávky vět, které už hra neříká (text se změnil nebo zmizel), se smažou; ostatní zůstanou
   if (!values.zkouska && limit === Infinity && existsSync(slozka)) {
     const platne = new Set(vsechny.map((u) => u.id));
     const stare = readdirSync(slozka).filter((s) => /^[0-9a-f]{8}\./.test(s) && !platne.has(s.split('.')[0]));
     for (const s of stare) rmSync(join(slozka, s));
+    for (const id of Object.keys(zdroj)) if (!platne.has(id)) delete zdroj[id];
     if (stare.length) console.log(`${postava}: smazáno ${stare.length} nahrávek vět, které už hra neříká`);
   }
   const fronta = vsechny
-    .filter((u) => values.prepsat || !existujici.has(u.id))
+    .filter((u) => values.prepsat || !existujici.has(u.id) || zdroj[u.id] !== podpis(u))
     .slice(0, Math.max(0, limit - celkem));
   console.log(`${postava}: ${fronta.length} vět k namluvení (${h.hlas})`);
   if (values.zkouska) {
@@ -179,6 +216,8 @@ for (const postava of postavy) {
           await pockejNaRadu();
           const audio = await SLUZBY[sluzba as keyof typeof SLUZBY](textProTts(u), h);
           writeFileSync(join(slozka, `${u.id}.mp3`), Buffer.from(audio));
+          zdroj[u.id] = podpis(u);
+          ulozZdroj();
           celkem++;
           znaku += u.text.length;
           zaSebou = 0;
