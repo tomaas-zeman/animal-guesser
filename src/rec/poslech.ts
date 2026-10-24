@@ -27,24 +27,38 @@ function tridaRozpoznavace(): RozpoznavacTrida | undefined {
 
 export const poslechDostupny = !!tridaRozpoznavace();
 
-export interface Poslech {
+export interface Slyseni {
   /** přepisy toho, co hráč řekl (víc variant), prázdné pole = nic neslyšel */
-  vysledek: Promise<string[]>;
+  texty: string[];
+  /** proč poslech skončil bez výsledku ("no-speech", "network", "aborted"…) */
+  chyba?: string;
+  /** jak dlouho poslech běžel (ms); velmi krátký poslech bez výsledku je porucha, ne ticho */
+  trvani: number;
+}
+
+export interface Poslech {
+  vysledek: Promise<Slyseni>;
   zrus(): void;
 }
 
+/** Pojistka pro prohlížeče, kde poslech občas neskončí sám. */
+const MAX_DELKA = 20_000;
+
 export function poslouchej(): Poslech {
   const Trida = tridaRozpoznavace();
-  if (!Trida) return { vysledek: Promise.resolve([]), zrus() {} };
+  if (!Trida) return { vysledek: Promise.resolve({ texty: [], chyba: 'nedostupny', trvani: 0 }), zrus() {} };
 
   const r = new Trida();
   r.lang = 'cs-CZ';
   r.continuous = false;
   r.interimResults = false;
   r.maxAlternatives = 5;
+  const zacatek = Date.now();
+  let pojistka: ReturnType<typeof setTimeout> | undefined;
 
-  const vysledek = new Promise<string[]>((resolve, reject) => {
+  const vysledek = new Promise<Slyseni>((resolve, reject) => {
     let texty: string[] = [];
+    let chyba: string | undefined;
     r.onresult = (e) => {
       texty = [];
       for (let i = 0; i < e.results.length; i++) {
@@ -53,19 +67,31 @@ export function poslouchej(): Poslech {
       }
     };
     r.onerror = (e) => {
+      chyba = e.error;
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') reject(new Error('mikrofon-zakazan'));
       // některé telefony nedovolí poslouchat a zároveň měřit hlasitost
       if (e.error === 'audio-capture') reject(new Error('mikrofon-obsazen'));
     };
-    r.onend = () => resolve(texty);
+    r.onend = () => {
+      clearTimeout(pojistka);
+      resolve({ texty: texty.filter((t) => t.trim()), chyba, trvani: Date.now() - zacatek });
+    };
   });
 
   try {
     r.start();
   } catch {
-    return { vysledek: Promise.resolve([]), zrus() {} };
+    // typicky "už běží" hned po předchozím poslechu; volající to zkusí znovu
+    return { vysledek: Promise.resolve({ texty: [], chyba: 'start', trvani: 0 }), zrus() {} };
   }
-  return { vysledek, zrus: () => r.abort() };
+  pojistka = setTimeout(() => r.abort(), MAX_DELKA);
+  return {
+    vysledek,
+    zrus: () => {
+      clearTimeout(pojistka);
+      r.abort();
+    },
+  };
 }
 
 function normalizuj(text: string): string {
@@ -81,9 +107,9 @@ function normalizuj(text: string): string {
 // Pořadí je důležité: "nevím" obsahuje "ne", "spíš ne" je ne a ne "možná".
 const VZORY: [Odpoved, RegExp][] = [
   ['nevim', /\b(nevim|netusim|nemam tuseni|nevim jiste|nejsem si jist[aey]?|kdo vi|nevi)\b/],
-  ['ne', /\b(spis ne|asi ne|myslim ze ne|ne|nene|ne ne|neni|nema|nemuze|nikdy|vubec|kdepak|nee+)\b/],
+  ['ne', /\b(spis ne|asi ne|myslim ze ne|ani nahodou|v zadnem pripade|ne|nene|ne ne|neni|nema|nemuze|nikdy|vubec|kdepak|nee+)\b/],
   ['mozna', /\b(mozna|muze byt|muze|nekdy|asi|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
-  ['ano', /\b(ano|jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
+  ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
 ];
 
 /** Odpověď má pár slov; delší věta je nejspíš hovor okolo, ne odpověď hráče. */
@@ -127,4 +153,24 @@ export function rozpoznejOdpoved(texty: string[]): Odpoved | null {
     for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return odpoved;
   }
   return null;
+}
+
+/** Kolik výpadků rozpoznávání za sebou se přečká, než poslech skončí. */
+export const MAX_PORUCH = 8;
+/** Poslech, který skončí rychleji než tohle a nic neslyšel, je výpadek, ne mlčení. */
+const MIN_DELKA = 1500;
+
+/** Je prázdný poslech výpadek (síť, chyba, okamžitý konec), a ne jen mlčící hráč? */
+export function jePorucha(s: Slyseni): boolean {
+  return s.trvani < MIN_DELKA || (!!s.chyba && s.chyba !== 'no-speech' && s.chyba !== 'no-match');
+}
+
+/** Hráč něco řekl, ale rozpoznávání z toho nedostalo žádná slova. */
+export function jeNesrozumitelne(s: Slyseni): boolean {
+  return s.texty.length === 0 && !jePorucha(s) && (s.chyba === 'no-match' || !s.chyba);
+}
+
+/** Jak dlouho počkat po n-tém výpadku za sebou, aby se poslech nezacyklil. */
+export function pauzaPoPoruse(n: number): number {
+  return Math.min(250 * 2 ** n, 5000);
 }
