@@ -103,6 +103,13 @@ export class Hra {
       .sort((a, b) => b.pst - a.pst);
   }
 
+  /** Jak moc postavička čeká na otázku odpověď ano (0–1), podle toho, která zvířata jsou ve hře. */
+  ocekavaneAno(id: string): number {
+    let suma = 0;
+    this.pst.forEach((p, i) => (suma += p * (this.db.zvirata[i].a[id] ?? 0)));
+    return suma;
+  }
+
   odpovez(id: string, odpoved: Odpoved): void {
     this.polozene.add(id);
     this.historie.push({ id, odpoved });

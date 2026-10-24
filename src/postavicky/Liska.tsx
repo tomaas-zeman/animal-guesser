@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { Koule, Mat, Oboci, Oko, Podstavec, Pusa, Styl, Tvaricka, useAnimace, type PostavickaProps } from './spolecne';
+import { jeNapjata, jeSmutna, jeVesela } from './emoce';
 
 const ORANZOVA = '#f07a2a';
 const BILA = '#fff6ea';
@@ -16,16 +17,18 @@ export function Liska(props: PostavickaProps) {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     if (ocas.current) {
-      const rychlost = props.nalada === 'radost' ? 14 : 3;
+      // ocásek vrtí radostí, v napětí nervózně, ve smutku skoro stojí
+      const rychlost = jeVesela(props.nalada) ? 14 : jeNapjata(props.nalada) ? 7 : jeSmutna(props.nalada) ? 1.2 : 3;
       ocas.current.rotation.y = Math.sin(t * rychlost) * 0.35;
       ocas.current.rotation.z = Math.sin(t * rychlost * 0.5) * 0.08;
     }
     if (usi.current) {
-      // uši se občas zacukají, při smutku klesnou
+      // uši se občas zacukají, při smutku klesnou, ze zvědavosti a údivu se nastraží
       const cuk = Math.sin(t * 9) * Math.max(0, Math.sin(t * 0.8) - 0.9) * 2;
       usi.current.children.forEach((u, i) => {
         const s = i === 0 ? -1 : 1;
-        const dolu = props.nalada === 'smutek' ? 0.5 : 0;
+        const dolu =
+          props.nalada === 'smutek' ? 0.5 : props.nalada === 'zklamani' ? 0.3 : props.nalada === 'zvedavost' || props.nalada === 'prekvapeni' ? -0.15 : 0;
         u.rotation.z = THREE.MathUtils.lerp(u.rotation.z, -s * (0.32 + dolu) + s * cuk * 0.4, 0.15);
       });
     }

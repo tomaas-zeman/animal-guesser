@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import { Koule, Mat, Oboci, Oko, Podstavec, Pusa, Styl, Tvaricka, useAnimace, type PostavickaProps } from './spolecne';
+import { jeSmutna, jeVesela } from './emoce';
 
 const HNEDA = '#9a6544';
 const TMAVA = '#6e4428';
@@ -18,7 +19,13 @@ export function Sova(props: PostavickaProps) {
     const t = clock.elapsedTime;
     if (kridla.current) {
       const mavani =
-        props.nalada === 'radost' ? 0.6 + Math.sin(t * 16) * 0.6 : props.mluvi ? 0.12 + Math.sin(t * 5) * 0.08 : 0.06 + Math.sin(t * 2.2) * 0.02;
+        jeVesela(props.nalada)
+          ? 0.6 + Math.sin(t * 16) * 0.6
+          : props.nalada === 'prekvapeni'
+            ? 0.55
+            : jeSmutna(props.nalada)
+              ? 0.02
+              : props.mluvi ? 0.12 + Math.sin(t * 5) * 0.08 : 0.06 + Math.sin(t * 2.2) * 0.02;
       kridla.current.children.forEach((k, i) => {
         k.rotation.z = (i === 0 ? -1 : 1) * mavani;
       });
