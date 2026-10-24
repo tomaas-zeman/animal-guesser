@@ -1,6 +1,7 @@
 // Projev postavičky během hry: co řekne a s jakou emocí, podle toho, jak se hra vyvíjí.
 // Nezávisí na Reactu, takže se dá testovat.
 import type { Odpoved } from '../game/engine';
+import type { DruhNadavky } from '../rec/poslech';
 import type { Nalada } from './emoce';
 import type { Hlasky } from './hlasky';
 
@@ -68,6 +69,7 @@ export class Projev {
   /** kolik otázek od poslední zmínky, že je blízko */
   private odBlizko = Infinity;
   private omylu = 0;
+  private nadavek = 0;
 
   constructor(
     readonly hlasky: Hlasky,
@@ -150,9 +152,14 @@ export class Projev {
     return this.vyber(this.hlasky.vzdavam, 'smutek');
   }
 
-  /** Hráč jí nadává: nenechá se vyvést z míry a vtipně to otočí. */
-  urazka(): Replika {
-    return this.vyber(this.hlasky.urazka, 'prekvapeni');
+  /**
+   * Hráč postavičce nadává. Zareaguje vtipně a bez urážení zpátky, každá věta
+   * má svou emoci. Od třetí nadávky za hru to vezme s nadhledem.
+   */
+  nadavka(druh: DruhNadavky): Replika {
+    this.nadavek++;
+    if (this.nadavek >= 3 && this.nadavek % 2 === 1) return this.vyber(this.hlasky.nadavkaZnovu, 'zvedavost');
+    return nahodne(this.hlasky.nadavka[druh], this.rng);
   }
 
   nerozumim(): Replika {
