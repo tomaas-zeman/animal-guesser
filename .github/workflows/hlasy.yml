@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       postava:
-        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan, vojtachu), prázdné = všechny'
+        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan, vojtaca), prázdné = všechny'
         required: false
         default: ''
       prepsat:
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        postava: [liska, robot, sova, zabak, banan, vojtachu]
+        postava: [liska, robot, sova, zabak, banan, vojtaca]
     steps:
       - uses: actions/checkout@v4
         if: inputs.postava == '' || inputs.postava == matrix.postava
@@ -93,7 +93,12 @@ jobs:
             mkdir -p "public/hlasy/$p"
             cp "$d"/* "public/hlasy/$p/"
           done
-          git add public/hlasy
+          # složky postaviček, které už ve hře nejsou (třeba po přejmenování), se smažou; seznam je stejný jako v matrix
+          for d in public/hlasy/*/; do
+            p=$(basename "$d")
+            case " liska robot sova zabak banan vojtaca " in *" $p "*) ;; *) rm -rf "$d" ;; esac
+          done
+          git add -A public/hlasy
           if git diff --cached --quiet; then echo "Nic nového."; exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

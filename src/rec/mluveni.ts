@@ -11,8 +11,6 @@ export interface Hlas {
   pohlavi: 'zena' | 'muz';
   /** robotický hlas: výšku měníme naplno i u přirozených hlasů */
   robot?: boolean;
-  /** pištivý hlas jako po hélium: výšku taky měníme naplno */
-  helium?: boolean;
   /** ladění, když prohlížeč hlas požadovaného pohlaví nemá (jinak se odvodí z pitch) */
   nahrada?: { pitch: number; rate: number };
 }
@@ -100,7 +98,7 @@ function zakladniHlas(hlas: Hlas, cs: SpeechSynthesisVoice | undefined): Ladeni 
   const sedi = !!cs && pohlaviHlasu(cs) === hlas.pohlavi;
   if (sedi || !cs || pohlaviHlasu(cs) === undefined) {
     // velká změna výšky zkresluje, u přirozených hlasů ji jen naznačíme
-    const mira = jePrirozeny(cs) && !hlas.robot && !hlas.helium ? 0.4 : 1;
+    const mira = jePrirozeny(cs) && !hlas.robot ? 0.4 : 1;
     return { pitch: 1 + (hlas.pitch - 1) * mira, rate: hlas.rate, mira };
   }
   // hlas jiného pohlaví: postavičku odlišíme výrazně jinou výškou a tempem

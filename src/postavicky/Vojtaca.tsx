@@ -7,11 +7,12 @@ import { jeNapjata, jeSmutna, jeVesela } from './emoce';
 const ZLUTA = '#ffd21f';
 const BRICHO = '#ffe88a';
 const HNEDA = '#6b3e1e';
-const FOUSY = '#7a4a22';
+const OBOCI = '#7a4a22';
+const UCHO = '#ffc9a8';
 const CERVENA = '#e8402a';
 const MONTERKY = '#3d6fb6';
 const GUMAKY = '#2f6b3a';
-const CEPICE = '#5b5f3c';
+const KSILTOVKA = '#d7372f';
 const SENO = '#e2b84a';
 const DREVO = '#9a6a3a';
 
@@ -37,18 +38,18 @@ function Vysec({
   );
 }
 
-/** Pokémoní ucho se špičkou do hněda. Levé je trochu zalomené, Vojtachu se s nikým nemazlí. */
-function Ucho({ strana }: { strana: -1 | 1 }) {
+/** Velké ucho jako má fenek, zevnitř narůžovělé. Otáčí se u kořene, takže s ním jde stříhat. */
+function Ucho({ ucho, strana }: { ucho: React.RefObject<THREE.Group | null>; strana: -1 | 1 }) {
   return (
-    <group position={[strana * 0.27, 0.3, -0.02]} rotation={[0, 0, strana * -0.55]}>
-      <mesh position={[0, 0.2, 0]} castShadow>
-        <coneGeometry args={[0.11, 0.45, 24]} />
-        <Mat barva={ZLUTA} lesk={0.3} />
-      </mesh>
-      <group position={[0, 0.3, 0]} rotation={[strana === -1 ? -0.5 : 0, 0, 0]}>
-        <mesh position={[0, 0.065, 0]} castShadow>
-          <coneGeometry args={[0.038, 0.14, 24]} />
-          <Mat barva={HNEDA} lesk={0.3} />
+    <group position={[strana * 0.26, 0.26, -0.05]}>
+      <group ref={ucho} rotation={[0, 0, strana * -0.5]}>
+        <mesh position={[0, 0.33, 0]} scale={[1, 1, 0.4]} castShadow>
+          <coneGeometry args={[0.23, 0.7, 32]} />
+          <Mat barva={ZLUTA} lesk={0.3} />
+        </mesh>
+        <mesh position={[0, 0.3, 0.05]} scale={[1, 1, 0.22]}>
+          <coneGeometry args={[0.16, 0.55, 32]} />
+          <Mat barva={UCHO} lesk={0.2} />
         </mesh>
       </group>
     </group>
@@ -96,11 +97,12 @@ function Balik() {
   );
 }
 
-export function Vojtachu(props: PostavickaProps) {
+export function Vojtaca(props: PostavickaProps) {
   const { telo, hlava, oci, pusa, usmev, oboci } = useAnimace(props);
   const levaRuka = useRef<THREE.Group>(null);
   const pravaRuka = useRef<THREE.Group>(null);
-  const knir = useRef<THREE.Group>(null);
+  const leveUcho = useRef<THREE.Group>(null);
+  const praveUcho = useRef<THREE.Group>(null);
   const steblo = useRef<THREE.Group>(null);
   const ocas = useRef<THREE.Group>(null);
   const n = props.nalada;
@@ -148,12 +150,15 @@ export function Vojtachu(props: PostavickaProps) {
       ruka.rotation.z = THREE.MathUtils.lerp(ruka.rotation.z, s * z, k);
       ruka.rotation.x = THREE.MathUtils.lerp(ruka.rotation.x, x, k);
     }
-    if (knir.current) {
-      // knír se při mluvení cuká, při urážce naježí
-      const cuk = props.mluvi ? Math.sin(t * 14) * 0.05 : 0;
-      knir.current.position.y = THREE.MathUtils.lerp(knir.current.position.y, -0.075 + cuk * 0.3, 0.3);
-      const nafouknuti = n === 'dotcena' ? 1.2 : 1;
-      knir.current.scale.setScalar(THREE.MathUtils.lerp(knir.current.scale.x, nafouknuti, 0.15));
+    // uši: při údivu se napřímí, ve smutku svěsí, při mluvení sebou cukají
+    const rozevreni = n === 'prekvapeni' ? 0.25 : jeSmutna(n) ? 1.0 : n === 'dotcena' ? 0.75 : 0.5;
+    const cuk = props.mluvi ? Math.sin(t * 9) * 0.06 : Math.max(0, Math.sin(t * 0.9) - 0.97) * 3;
+    for (const [ucho, s] of [
+      [leveUcho.current, -1],
+      [praveUcho.current, 1],
+    ] as const) {
+      if (!ucho) continue;
+      ucho.rotation.z = THREE.MathUtils.lerp(ucho.rotation.z, s * -(rozevreni + cuk), 0.15);
     }
     if (steblo.current) {
       // stéblo v puse se pohupuje, při přemýšlení se s ním žvýká
@@ -274,15 +279,15 @@ export function Vojtachu(props: PostavickaProps) {
         <group ref={hlava} position={[0, 0.98, 0.02]}>
           <group position={[0, 0.38, 0]}>
             <Koule r={0.48} barva={ZLUTA} scale={[1.05, 0.96, 1]} lesk={0.3} />
-            <Ucho strana={-1} />
-            <Ucho strana={1} />
+            <Ucho ucho={leveUcho} strana={-1} />
+            <Ucho ucho={praveUcho} strana={1} />
 
             <group ref={oci} position={[0, 0.07, 0.4]}>
               <Oko pozice={[-0.16, 0, 0]} r={0.1} duhovka="#3a2412" />
               <Oko pozice={[0.16, 0, 0]} r={0.1} duhovka="#3a2412" />
             </group>
             {/* huňaté obočí */}
-            <Oboci oboRef={oboci} y={0.2} z={0.41} roztec={0.16} delka={0.1} tloustka={0.036} barva={FOUSY} sklon={-0.2} />
+            <Oboci oboRef={oboci} y={0.2} z={0.41} roztec={0.16} delka={0.1} tloustka={0.036} barva={OBOCI} sklon={-0.2} />
 
             {/* elektrické tvářičky */}
             {[-1, 1].map((s) => (
@@ -295,38 +300,32 @@ export function Vojtachu(props: PostavickaProps) {
             {/* nos */}
             <Koule r={0.045} barva={HNEDA} position={[0, -0.01, 0.475]} scale={[1.2, 0.9, 1]} lesk={0.6} />
 
-            {/* pořádný sedlácký knír s kroucenými konci */}
-            <group ref={knir} position={[0, -0.075, 0]}>
-              {[-1, 1].map((s) => (
-                <group key={s}>
-                  <Koule r={0.1} barva={FOUSY} position={[s * 0.1, 0, 0.44]} rotation={[0, s * 0.3, s * 0.3]} scale={[1.6, 0.7, 0.75]} lesk={0.15} />
-                  <Koule r={0.045} barva={FOUSY} position={[s * 0.25, -0.05, 0.38]} rotation={[0, 0, s * 0.8]} scale={[1.4, 0.6, 0.7]} lesk={0.15} />
-                  <Koule r={0.028} barva={FOUSY} position={[s * 0.3, 0.0, 0.34]} lesk={0.15} />
-                </group>
-              ))}
-            </group>
-
-            <Pusa pusaRef={pusa} usmevRef={usmev} pozice={[0, -0.21, 0.42]} sirka={0.12} barva="#6a2418" natoceni={-0.4} />
+            <Pusa pusaRef={pusa} usmevRef={usmev} pozice={[0, -0.16, 0.44]} sirka={0.12} barva="#6a2418" natoceni={-0.4} />
 
             {/* stéblo trávy v koutku pusy */}
-            <group ref={steblo} position={[0.1, -0.21, 0.43]} rotation={[0.3, 0, -1.0]}>
+            <group ref={steblo} position={[0.1, -0.16, 0.44]} rotation={[0.3, 0, -1.0]}>
               <mesh position={[0, -0.14, 0]}>
                 <cylinderGeometry args={[0.006, 0.008, 0.28, 6]} />
                 <Mat barva="#d8c25a" />
               </mesh>
             </group>
 
-            {/* bekovka nakřivo */}
-            <group position={[0.02, 0.36, 0.02]} rotation={[-0.15, 0, -0.1]}>
-              <mesh castShadow scale={[1, 0.42, 1]}>
-                <sphereGeometry args={[0.31, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
-                <Mat barva={CEPICE} lesk={0.1} />
+            {/* kšiltovka */}
+            <group position={[0, 0.3, 0.02]} rotation={[-0.12, 0, 0]}>
+              <mesh castShadow scale={[1.04, 0.62, 1.04]}>
+                <sphereGeometry args={[0.33, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+                <Mat barva={KSILTOVKA} lesk={0.25} />
               </mesh>
-              <mesh position={[0, 0.005, 0.27]} rotation={[0.12, 0, 0]} scale={[1, 1, 0.55]} castShadow>
-                <cylinderGeometry args={[0.22, 0.22, 0.02, 32]} />
-                <Mat barva={CEPICE} lesk={0.1} />
+              <mesh position={[0, 0.0, 0.2]} rotation={[0.4, 0, 0]} scale={[1, 1, 1.3]} castShadow>
+                <cylinderGeometry args={[0.28, 0.28, 0.03, 32, 1, false, -Math.PI / 2, Math.PI]} />
+                <Mat barva={KSILTOVKA} lesk={0.25} />
               </mesh>
-              <Koule r={0.025} barva={CEPICE} position={[0, 0.13, 0]} />
+              <Koule r={0.03} barva={KSILTOVKA} position={[0, 0.205, 0]} lesk={0.25} />
+              {/* bílý štítek vpředu */}
+              <mesh position={[0, 0.08, 0.315]} rotation={[-0.25, 0, 0]} scale={[1, 0.7, 0.2]}>
+                <sphereGeometry args={[0.08, 20, 16]} />
+                <Mat barva="#ffffff" lesk={0.3} />
+              </mesh>
             </group>
           </group>
         </group>

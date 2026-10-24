@@ -510,29 +510,29 @@ export const BANAN: Hlasky = {
   ],
 };
 
-export const VOJTACHU: Hlasky = {
+export const VOJTACA: Hlasky = {
   uvod: [
-    'Čau, já jsem Vojtachu! Vojta-chů! Mysli si nějaký zvíře a já ho uhodnu, to je jasný jak facka.',
-    'Nazdar, mladej! Tady Vojtachu, pokémon z vesnice. Vymysli si zvíře a jdem na to.',
-    'Zdravíčko! Vojtachu, žlutej jak řepka a vousatej jak dědek. Mysli si zvíře!',
-    'Vojta-chů! Zrovna jsem nakydal chlív, tak můžem hádat. Mysli si zvíře.',
+    'Čau, já jsem Vojtača! Vojta-ča! Mysli si nějaký zvíře a já ho uhodnu, to je jasný jak facka.',
+    'Nazdar, mladej! Tady Vojtača, pokémon z vesnice. Vymysli si zvíře a jdem na to.',
+    'Zdravíčko! Vojtača, žlutej jak řepka a ušatej jak fenek. Mysli si zvíře!',
+    'Vojta-ča! Zrovna jsem nakydal chlív, tak můžem hádat. Mysli si zvíře.',
   ],
   zacatek: [
     'Tak jdem na to, žádný cavyky!',
     'Vyhrnu rukávy a jedem.',
-    'Vojta-chů! Startuju traktor, jedem.',
+    'Vojta-ča! Startuju traktor, jedem.',
     'Dobrý, tak hezky popořádku.',
   ],
   reakce: {
     ano: [
       'No vidíš, to je ono!',
       'Jasná páka!',
-      'Sedí to jak čepice na hlavě.',
+      'Sedí to jak kšiltovka na hlavě.',
       'Výborně, to beru všema deseti.',
       'Ha, to jsem si myslel.',
       'Jasně, píšu si to křídou na vrata.',
       'Fajn, to je dobrá stopa.',
-      'Jo! Vojta-chů!',
+      'Jo! Vojta-ča!',
     ],
     ne: [
       'Ne? Tak to šmytec.',
@@ -557,23 +557,23 @@ export const VOJTACHU: Hlasky = {
   },
   prekvapeni: [
     'Hergot! Tak to jsem nečekal!',
-    'Ty jo, z toho mi málem spadla čepice!',
+    'Ty jo, z toho mi málem spadla kšiltovka!',
     'No nazdar! Tohle mě koplo jak elektrickej ohradník.',
     'Kruci! Tohle mi zamíchalo bramborama.',
   ],
   pokrok: [
-    'Vojta-chů! To mi hodně pomohlo!',
+    'Vojta-ča! To mi hodně pomohlo!',
     'Jo, teď to jede jak traktor z kopce.',
     'Výborně, už to mám skoro posekaný.',
     'Tohle je odpověď jako hrom!',
   ],
   tuseni: [
     'Hmm, už něco větřím. Jako když se v troubě peče buchta.',
-    'Fousy mi cukaj, něco tuším…',
+    'Uši mi cukaj, něco tuším…',
     'Už mám takový tušení, jak když se blíží bouřka…',
   ],
   blizko: [
-    'Už to skoro mám, fousy mi jiskřej!',
+    'Už to skoro mám, uši mi jiskřej!',
     'Ještě kousek a je to v pytli!',
     'Už jsem blízko, cejtím to v kostech.',
     'Už je to na spadnutí jak zralá hruška…',
@@ -581,14 +581,14 @@ export const VOJTACHU: Hlasky = {
   dlouho: [
     'Tohle je ale potvora zvíře! Delší než žně.',
     'Hergot, to je oříšek. Ale já to nevzdám, já jsem z vesnice.',
-    'Ty mi dáváš! Z toho přemejšlení se mi kouří z čepice.',
+    'Ty mi dáváš! Z toho přemejšlení se mi kouří z kšiltovky.',
   ],
   prechod: ['A teď…', 'Tak hele.', 'Další otázka.', 'Řekni mi…', 'A co tohle?'],
   tip: [
     'Mám to! Je to {z}?',
-    'Vojtachu říká… {z}?',
+    'Vojtača říká… {z}?',
     'Tipuju, že je to {z}. Sedí?',
-    'Fousy mi napovídaj, že je to {z}. Jo?',
+    'Uši mi napovídaj, že je to {z}. Jo?',
   ],
   tipJisty: [
     'Vsadím celej traktor, že je to {z}!',
@@ -601,8 +601,8 @@ export const VOJTACHU: Hlasky = {
     'Tápu jak v mlze, ale… je to {z}?',
   ],
   vyhra: [
-    'Vojta-chů! Uhodl jsem to!',
-    'No vidíš! Na Vojtachu nikdo nemá!',
+    'Vojta-ča! Uhodl jsem to!',
+    'No vidíš! Na Vojtaču nikdo nemá!',
     'Trefa! Za to si dám k obědu knedlo vepřo zelo.',
   ],
   vyhraRychla: [
@@ -613,7 +613,7 @@ export const VOJTACHU: Hlasky = {
     'Uf, to byla dřina jak na poli! Ale uhodl jsem to.',
     'Konečně! Zapotil jsem se jak kůň, ale mám to!',
   ],
-  znovu: ['Dáme ještě jedno kolo?', 'Jedem znova?', 'Zahrajem si ještě? Vojta-chů!'],
+  znovu: ['Dáme ještě jedno kolo?', 'Jedem znova?', 'Zahrajem si ještě? Vojta-ča!'],
   omyl: [
     'Vedle jak ta jedle. Nevadí, hádám dál!',
     'Kruci, to nebylo ono. Ale já se nedám.',
@@ -621,7 +621,7 @@ export const VOJTACHU: Hlasky = {
   ],
   omylZnovu: [
     'Zase vedle? Hergot, to je ale potvora!',
-    'Ach jo, z toho mi zplihnou fousy. Ale ptám se dál.',
+    'Ach jo, z toho mi zplihnou uši. Ale ptám se dál.',
     'Tak tohle je oříšek jak kokosák. Hádám dál!',
   ],
   vzdavam: [
@@ -631,10 +631,10 @@ export const VOJTACHU: Hlasky = {
   nadavka: {
     hloupost: [
       sebeironie('Hloupej? No jo, já mám jenom obecnou školu. Ale zvířata znám líp než kdo jinej!'),
-      dotcena('No dovol! Tak tohle mě urazilo až do fousů.'),
+      dotcena('No dovol! Tak tohle mě urazilo až po špičky uší.'),
       sebeironie('Tupej jak motyka? Možná. Ale motyka zvíře neuhodne, a já jo.'),
       hrava('Hele, hele, nech toho, nebo půjdeš se mnou kydat hnůj!'),
-      dotcena('Hmpf. Fousy se mi naježily. Ale hádat budu dál.'),
+      dotcena('Hmpf. Uši se mi naježily. Ale hádat budu dál.'),
       posmutnela('Au. Tohle mě píchlo jak vidle do paty. Ale přežiju to.'),
     ],
     hluchota: [
@@ -648,13 +648,13 @@ export const VOJTACHU: Hlasky = {
       dotcena('Hmpf. Tohle slovo vyhodím na hnůj. A je pryč!'),
       hrava('Ošklivý slovo? Já radši řeknu hezký: buchtička. Slyšíš ten rozdíl?'),
       ohromena('Ty jo! Takhle nenadává ani náš kohout, když ho ráno nikdo neposlouchá.'),
-      dotcena('Z toho se mi zkroutily fousy. Ale vidlák vydrží hodně.'),
+      dotcena('Z toho se mi zkroutily uši. Ale vidlák vydrží hodně.'),
       hrava('Klídek, jsem jenom žlutej pokémon. Tak hádáme dál?'),
     ],
   },
   nadavkaZnovu: [
     'Dneska jsi ale divokej jak býk na pastvě! Nevadí, jedem dál.',
-    'Ty mě zkoušíš, co? Vojtachu vydrží všechno, i bouřku na poli.',
+    'Ty mě zkoušíš, co? Vojtača vydrží všechno, i bouřku na poli.',
   ],
   nerozumim: ['Cože? Mám v uchu seno.', 'Prosím?', 'Ještě jednou, mladej?', 'Hm? To mi uletělo.', 'Nerozuměl jsem, řekni to znova.'],
 };
@@ -666,5 +666,5 @@ export const HLASKY: Record<string, Hlasky> = {
   sova: SOVA,
   zabak: ZABAK,
   banan: BANAN,
-  vojtachu: VOJTACHU,
+  vojtaca: VOJTACA,
 };
