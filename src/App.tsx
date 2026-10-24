@@ -5,7 +5,19 @@ import { POSTAVICKY, nahodne } from './postavicky';
 import type { Nalada } from './postavicky/spolecne';
 import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
 import { jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
-import { jeHovorOkolo, jeStart, jeZopakuj, poslechDostupny, poslouchej, rozpoznejOdpoved } from './rec/poslech';
+import {
+  MAX_PORUCH,
+  jeHovorOkolo,
+  jeNesrozumitelne,
+  jePorucha,
+  jeStart,
+  jeZopakuj,
+  pauzaPoPoruse,
+  poslechDostupny,
+  poslouchej,
+  rozpoznejOdpoved,
+  type Slyseni,
+} from './rec/poslech';
 import { Scena } from './Scena';
 
 const databaze = db as unknown as Databaze;
@@ -26,6 +38,8 @@ const pockej = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const PAUZA_PRED = 400;
 /** nádech mezi reakcí a další otázkou */
 const PAUZA_MEZI = 350;
+/** jak dlouho nejvýš poslouchá, když hráč mlčí; pak zůstane tlačítko 🎤 */
+const MAX_TICHO = 5 * 60_000;
 
 export default function App() {
   const [index, setIndex] = useState(0);
@@ -84,67 +98,111 @@ export default function App() {
   // dopředná deklarace kvůli vzájemnému volání
   const odpovezRef = useRef<(o: Odpoved) => void>(() => {});
 
-  /** Jedno poslechnutí. Vrací přepisy a jak nahlas to bylo; null = konec (zrušeno nebo mikrofon nejde). */
-  const poslechni = useCallback(async (gen: number): Promise<{ texty: string[]; hlasitost: number; znovu?: boolean } | null> => {
-    if (!nastaveniRef.current.mikrofon || !poslechDostupny || gen !== generace.current) return null;
-    setPosloucha(true);
-    zacniUsek();
-    const p = poslouchej();
-    zrusPoslech.current = p.zrus;
-    let texty: string[] = [];
-    try {
-      texty = await p.vysledek;
-    } catch (e) {
-      if (gen !== generace.current) return null;
-      setPosloucha(false);
-      if ((e as Error).message === 'mikrofon-obsazen' && meriSe()) {
-        vypniMereni();
-        setUpozorneni('Tohle zařízení neumí zároveň poslouchat a měřit hlasitost, filtr hlasitosti je vypnutý.');
-        return { texty: [], hlasitost: 0, znovu: true };
-      }
-      setMikrofon(false);
-      setUpozorneni('Mikrofon není povolený. Odpovídej tlačítky, nebo povol mikrofon v prohlížeči.');
-      return null;
-    }
-    if (gen !== generace.current) return null;
-    setPosloucha(false);
-    return { texty, hlasitost: spickaUseku() };
-  }, []);
+  /**
+   * Poslouchá pořád dokola, dokud `zpracuj` nevrátí true. Mlčení a výpadky
+   * rozpoznávání (síť, okamžitý konec) přečká a poslech znovu spustí.
+   */
+  const poslouchejPorad = useCallback(
+    async (gen: number, zpracuj: (texty: string[], hlasitost: number) => Promise<boolean>) => {
+      let poruch = 0;
+      let posledniZvuk = Date.now();
+      try {
+        while (gen === generace.current && nastaveniRef.current.mikrofon && poslechDostupny) {
+          setPosloucha(true);
+          zacniUsek();
+          const p = poslouchej();
+          zrusPoslech.current = p.zrus;
+          let s: Slyseni;
+          try {
+            s = await p.vysledek;
+          } catch (e) {
+            if (gen !== generace.current) return;
+            if ((e as Error).message === 'mikrofon-obsazen' && meriSe()) {
+              vypniMereni();
+              setUpozorneni('Tohle zařízení neumí zároveň poslouchat a měřit hlasitost, filtr hlasitosti je vypnutý.');
+              continue;
+            }
+            setMikrofon(false);
+            setUpozorneni('Mikrofon není povolený. Odpovídej tlačítky, nebo povol mikrofon v prohlížeči.');
+            return;
+          }
+          if (gen !== generace.current || !nastaveniRef.current.mikrofon) return;
 
-  const poslouchejOdpoved = useCallback(async (gen: number, pokus = 0) => {
-    setSlyseno('');
-    // hovor okolo se tiše přeslechne a poslouchá se dál
-    for (let ignorovano = 0; ignorovano < 20; ignorovano++) {
-      const v = await poslechni(gen);
-      if (!v) return;
-      const { texty, hlasitost } = v;
-      if (v.znovu) continue; // jen se vypnulo měření, zkusí to znovu
-      if (texty.length === 0) return; // ticho: hráč může kliknout na tlačítko nebo na mikrofon
-      if (!jeHrac(hlasitost)) {
-        setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
-        continue;
+          // něco zaznělo, ale bez slov: když to byl hlas hráče, ať to zopakuje
+          const hlasitost = spickaUseku();
+          const hracMluvil = s.chyba === 'no-match' || (meriSe() && referencniHlasitost() !== null && jeHrac(hlasitost));
+          if (jeNesrozumitelne(s) && hracMluvil) {
+            poruch = 0;
+            posledniZvuk = Date.now();
+            setPosloucha(false);
+            if (await zpracuj([], hlasitost)) return;
+            continue;
+          }
+
+          if (s.texty.length === 0) {
+            if (jePorucha(s)) {
+              if (++poruch > MAX_PORUCH) {
+                setUpozorneni('Rozpoznávání řeči teď nefunguje, zkontroluj připojení k internetu. Pak klikni na 🎤, nebo odpovídej tlačítky.');
+                return;
+              }
+              await pockej(pauzaPoPoruse(poruch));
+            } else {
+              poruch = 0;
+              if (Date.now() - posledniZvuk > MAX_TICHO) return;
+            }
+            continue;
+          }
+
+          poruch = 0;
+          posledniZvuk = Date.now();
+          setPosloucha(false);
+          if (await zpracuj(s.texty, hlasitost)) return;
+        }
+      } finally {
+        if (gen === generace.current) setPosloucha(false);
       }
-      if (jeHovorOkolo(texty)) {
-        setSlyseno(`${texty[0]} (to nebyla odpověď)`);
-        continue;
-      }
-      setSlyseno(texty[0]);
-      if (jeZopakuj(texty)) {
+    },
+    [],
+  );
+
+  /** Poslouchá odpověď. Když nerozumí, řekne to, a poslouchá dál. U tipu bere jen ano/ne. */
+  const poslouchejOdpoved = useCallback(
+    async (gen: number, jenAnoNe = false) => {
+      setSlyseno('');
+      let nerozumi = 0;
+      await poslouchejPorad(gen, async (texty, hlasitost) => {
+        if (texty.length > 0) {
+          // hovor okolo se tiše přeslechne a poslouchá se dál
+          if (!jeHrac(hlasitost)) {
+            setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
+            return false;
+          }
+          if (jeHovorOkolo(texty)) {
+            setSlyseno(`${texty[0]} (to nebyla odpověď)`);
+            return false;
+          }
+          setSlyseno(texty[0]);
+          if (jeZopakuj(texty)) {
+            await pockej(PAUZA_PRED);
+            await mluv(posledniOtazka.current, gen);
+            return false;
+          }
+        } else setSlyseno('…');
+        const odpoved = rozpoznejOdpoved(texty);
+        if (odpoved && (!jenAnoNe || odpoved === 'ano' || odpoved === 'ne')) {
+          kalibruj(hlasitost);
+          odpovezRef.current(odpoved);
+          return true;
+        }
+        nerozumi++;
         await pockej(PAUZA_PRED);
-        if (await mluv(posledniOtazka.current, gen)) poslouchejOdpoved(gen);
-        return;
-      }
-      const odpoved = rozpoznejOdpoved(texty);
-      if (odpoved) {
-        kalibruj(hlasitost);
-        odpovezRef.current(odpoved);
-      } else if (pokus < 2) {
-        await pockej(PAUZA_PRED);
-        if (await mluv(postavicka.hlasky.nerozumim, gen)) poslouchejOdpoved(gen, pokus + 1);
-      }
-      return;
-    }
-  }, [mluv, poslechni, postavicka]);
+        const napoveda = nerozumi < 2 ? '' : jenAnoNe ? ' Stačí říct ano, nebo ne.' : ' Stačí říct ano, ne, nevím, nebo může být.';
+        await mluv(postavicka.hlasky.nerozumim + napoveda, gen);
+        return false;
+      });
+    },
+    [mluv, poslouchejPorad, postavicka],
+  );
 
   const dalsiTah = useCallback(async (gen: number, reakce = '') => {
     const h = hra.current;
@@ -176,7 +234,7 @@ export default function App() {
       setNalada('tipuje');
       const veta = nahodne(postavicka.hlasky.tip).replace('{z}', t.zvire.jmeno.toLowerCase());
       posledniOtazka.current = veta;
-      if (await mluv(veta, gen)) poslouchejOdpoved(gen);
+      if (await mluv(veta, gen)) poslouchejOdpoved(gen, true);
     } else {
       setFaze('vzdavam');
       if (await mluv(postavicka.hlasky.vzdavam, gen)) cekejNaStartRef.current(gen);
@@ -214,20 +272,18 @@ export default function App() {
   const cekejNaStart = useCallback(async (gen: number) => {
     if (!nastaveniRef.current.mikrofon || !poslechDostupny) return;
     await zapniMereni();
+    if (gen !== generace.current) return;
     setSlyseno('');
-    for (let pokus = 0; pokus < 200; pokus++) {
-      const v = await poslechni(gen);
-      if (!v) return;
-      if (v.texty.length > 0) setSlyseno(v.texty[0]);
-      if (jeStart(v.texty)) {
-        zapomenHrace();
-        kalibruj(v.hlasitost);
-        zacniRef.current();
-        return;
-      }
-      await pockej(150);
-    }
-  }, [poslechni]);
+    await poslouchejPorad(gen, async (texty, hlasitost) => {
+      if (texty.length === 0) return false;
+      setSlyseno(texty[0]);
+      if (!jeStart(texty)) return false;
+      zapomenHrace();
+      kalibruj(hlasitost);
+      zacniRef.current();
+      return true;
+    });
+  }, [poslouchejPorad]);
   const cekejNaStartRef = useRef(cekejNaStart);
   cekejNaStartRef.current = cekejNaStart;
 
@@ -266,15 +322,25 @@ export default function App() {
 
   const prepniMikrofon = () => {
     if (mikrofon) {
+      nastaveniRef.current.mikrofon = false;
       zrusPoslech.current();
       setPosloucha(false);
       setMikrofon(false);
     } else {
       setMikrofon(true);
       nastaveniRef.current.mikrofon = true;
-      if (faze === 'hra' && !mluvi) poslouchejOdpoved(generace.current);
-      if ((faze === 'uvod' || faze === 'vyhra' || faze === 'vzdavam') && !mluvi) cekejNaStart(generace.current);
+      setUpozorneni('');
+      if (faze === 'hra' && tah && !mluvi) poslouchejOdpoved(prerus(), tah.typ === 'tip');
+      if ((faze === 'uvod' || faze === 'vyhra' || faze === 'vzdavam') && !mluvi) cekejNaStart(prerus());
     }
+  };
+
+  /** Ruční znovuspuštění poslechu tlačítkem 🎤. */
+  const poslouchejZnovu = () => {
+    setUpozorneni('');
+    if (faze === 'hra') {
+      if (tah) poslouchejOdpoved(prerus(), tah.typ === 'tip');
+    } else cekejNaStart(prerus());
   };
 
   const posun = (krok: number) => setIndex((i) => (i + krok + POSTAVICKY.length) % POSTAVICKY.length);
@@ -359,9 +425,15 @@ export default function App() {
                 </button>
               )}
 
-              {faze !== 'hra' && mikrofon && posloucha && (
+              {faze !== 'hra' && mikrofon && (posloucha || !mluvi) && (
                 <div className="stav">
-                  <span className="posloucham">● Řekni „hra“ a začneme</span>
+                  {posloucha ? (
+                    <span className="posloucham">● Řekni „hra“ a začneme</span>
+                  ) : (
+                    <button className="odkaz" onClick={poslouchejZnovu}>
+                      🎤 Poslouchat
+                    </button>
+                  )}
                   {slyseno && <span className="slyseno">🎧 „{slyseno}“</span>}
                 </div>
               )}
@@ -379,7 +451,7 @@ export default function App() {
                     {posloucha ? (
                       <span className="posloucham">● Poslouchám…</span>
                     ) : mikrofon && !mluvi ? (
-                      <button className="odkaz" onClick={() => poslouchejOdpoved(generace.current)}>
+                      <button className="odkaz" onClick={poslouchejZnovu}>
                         🎤 Řekni odpověď
                       </button>
                     ) : null}

@@ -26,17 +26,26 @@ function odpovedHrace(p: number, hrac: Hrac, rng: () => number): Odpoved {
   return ano ? 'ano' : 'ne';
 }
 
-function odehraj(db: Databaze, cil: number, hrac: Hrac, nastaveni: Partial<Nastaveni>, rng: () => number) {
+/** Jak hráč odpoví na otázku, když vlastnost platí s pravděpodobností p. */
+export type Odpovidac = (p: number, rng: () => number) => Odpoved;
+
+/** Hráč, který odpovídá přesně podle databáze (co platí aspoň napůl, je "ano"). */
+export const presnyHrac: Odpovidac = (p) => (p >= 0.5 ? 'ano' : 'ne');
+
+/** U jasných vlastností odpoví přesně, u nejasných (0,2 až 0,8) si hodí mincí podle p. */
+export const vahavyHrac: Odpovidac = (p, rng) => (p >= 0.8 ? 'ano' : p <= 0.2 ? 'ne' : rng() < p ? 'ano' : 'ne');
+
+export function odehraj(db: Databaze, cil: number, odpovidac: Odpovidac, nastaveni: Partial<Nastaveni>, rng: () => number) {
   const hra = new Hra(db, nastaveni, rng);
   for (let krok = 0; krok < 100; krok++) {
     const tah = hra.dalsiTah();
-    if (tah.typ === 'vzdavam') return { uhodl: false, tipu: hra.spatneTipy.length, otazek: hra.pocetOtazek };
+    if (tah.typ === 'vzdavam') return { uhodl: false, tipu: hra.spatneTipy.length, otazek: hra.pocetOtazek, spatneTipy: hra.spatneTipy };
     if (tah.typ === 'tip') {
-      if (tah.index === cil) return { uhodl: true, tipu: hra.spatneTipy.length + 1, otazek: hra.pocetOtazek };
+      if (tah.index === cil) return { uhodl: true, tipu: hra.spatneTipy.length + 1, otazek: hra.pocetOtazek, spatneTipy: hra.spatneTipy };
       hra.vyhodnotTip(tah.index, false);
       continue;
     }
-    hra.odpovez(tah.id, odpovedHrace(db.zvirata[cil].a[tah.id] ?? 0, hrac, rng));
+    hra.odpovez(tah.id, odpovidac(db.zvirata[cil].a[tah.id] ?? 0, rng));
   }
   throw new Error('hra se zacyklila');
 }
@@ -47,7 +56,7 @@ export function simuluj(db: Databaze, hrac: Hrac, her: number, nastaveni: Partia
   const neuspechy: Record<string, number> = {};
   db.zvirata.forEach((z, cil) => {
     for (let i = 0; i < her; i++) {
-      const v = odehraj(db, cil, hrac, nastaveni, rng);
+      const v = odehraj(db, cil, (p, r) => odpovedHrace(p, hrac, r), nastaveni, rng);
       celkem++;
       otazek += v.otazek;
       tipu += v.tipu;
@@ -65,4 +74,16 @@ export function simuluj(db: Databaze, hrac: Hrac, her: number, nastaveni: Partia
     prumerTahu: (otazek + tipu) / celkem,
     nejhorsi,
   };
+}
+
+/** Zvířata, která hráč s danými odpověďmi neuhodne na první tip, i s tím, za co je postavička zaměnila. */
+export function omylyNaPrvniTip(db: Databaze, odpovidac: Odpovidac, her: number, nastaveni: Partial<Nastaveni> = {}) {
+  const omyly: string[] = [];
+  db.zvirata.forEach((z, cil) => {
+    for (let i = 0; i < her; i++) {
+      const v = odehraj(db, cil, odpovidac, nastaveni, mulberry32(1000 * i + cil));
+      if (!v.uhodl || v.tipu > 1) omyly.push(`${z.jmeno} ← ${v.spatneTipy.map((j) => db.zvirata[j].jmeno).join(', ') || 'vzdal se'}`);
+    }
+  });
+  return omyly;
 }

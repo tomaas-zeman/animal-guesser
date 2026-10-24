@@ -42,7 +42,7 @@ export interface Nastaveni {
 
 export const vychoziNastaveni: Nastaveni = {
   chyba: 0.06,
-  jistotaTipu: 0.55,
+  jistotaTipu: 0.9,
   trpelivost: 18,
   maxOtazek: 30,
   maxTipu: 4,

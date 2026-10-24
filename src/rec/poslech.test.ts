@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { jeHovorOkolo, jeStart, jeZopakuj, rozpoznejOdpoved } from './poslech';
+import { MAX_PORUCH, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
 
 describe('rozpoznání odpovědi z řeči', () => {
   const pripady: [string, ReturnType<typeof rozpoznejOdpoved>][] = [
@@ -16,6 +16,8 @@ describe('rozpoznání odpovědi z řeči', () => {
     ['možná', 'mozna'],
     ['asi', 'mozna'],
     ['spíš ano', 'mozna'],
+    ['no jo', 'ano'],
+    ['ani náhodou', 'ne'],
     ['banán', null],
   ];
   for (const [text, cekam] of pripady) {
@@ -46,4 +48,28 @@ describe('hovor okolo, opakování a start', () => {
     it(`"${text}" spustí hru`, () => expect(jeStart([text])).toBe(true));
   }
   it('obyčejný hovor hru nespustí', () => expect(jeStart(['dneska je hezky'])).toBe(false));
+});
+
+describe('výpadky poslechu', () => {
+  it('mlčení není výpadek, poslouchá se dál', () => {
+    expect(jePorucha({ texty: [], chyba: 'no-speech', trvani: 6000 })).toBe(false);
+    expect(jePorucha({ texty: [], trvani: 8000 })).toBe(false);
+  });
+  it('síť, okamžitý konec nebo chyba startu jsou výpadek', () => {
+    expect(jePorucha({ texty: [], chyba: 'network', trvani: 3000 })).toBe(true);
+    expect(jePorucha({ texty: [], chyba: 'aborted', trvani: 4000 })).toBe(true);
+    expect(jePorucha({ texty: [], chyba: 'no-speech', trvani: 50 })).toBe(true);
+    expect(jePorucha({ texty: [], chyba: 'start', trvani: 0 })).toBe(true);
+  });
+  it('slova bez přepisu jsou nesrozumitelná odpověď, mlčení ne', () => {
+    expect(jeNesrozumitelne({ texty: [], chyba: 'no-match', trvani: 4000 })).toBe(true);
+    expect(jeNesrozumitelne({ texty: [], trvani: 4000 })).toBe(true);
+    expect(jeNesrozumitelne({ texty: [], chyba: 'no-speech', trvani: 6000 })).toBe(false);
+    expect(jeNesrozumitelne({ texty: [], chyba: 'network', trvani: 4000 })).toBe(false);
+    expect(jeNesrozumitelne({ texty: [], trvani: 100 })).toBe(false);
+  });
+  it('pauza po výpadcích roste, ale má strop', () => {
+    expect(pauzaPoPoruse(1)).toBeLessThan(pauzaPoPoruse(3));
+    expect(pauzaPoPoruse(MAX_PORUCH)).toBe(5000);
+  });
 });
