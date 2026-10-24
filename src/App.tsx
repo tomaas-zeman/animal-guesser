@@ -7,7 +7,7 @@ import { DOPLNKY } from './postavicky/hlasky';
 import { Projev, type Replika } from './postavicky/projev';
 import { maNahravky } from './hlasy/prehravac';
 import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
-import { hracDomluvil, jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
+import { hracDomluvil, jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, zacniUsek, zakazMereni, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import {
   MAX_PORUCH,
   bezNadavek,
@@ -147,7 +147,7 @@ export default function App() {
           } catch (e) {
             if (gen !== generace.current) return;
             if ((e as Error).message === 'mikrofon-obsazen' && meriSe()) {
-              vypniMereni();
+              zakazMereni();
               setUpozorneni('Tohle zařízení neumí zároveň poslouchat a měřit hlasitost, filtr hlasitosti je vypnutý.');
               continue;
             }
@@ -157,6 +157,12 @@ export default function App() {
           }
           if (gen !== generace.current || !nastaveniRef.current.mikrofon) return;
           if (ladeni) zaznamenej(s, spickaUseku());
+          // mikrofon drží měření hlasitosti a rozpoznávání nedostalo žádný zvuk: měření ustoupí
+          if (meriSe() && s.bezZvuku && s.texty.length === 0) {
+            zakazMereni();
+            setUpozorneni('Tohle zařízení neumí zároveň poslouchat a měřit hlasitost, filtr hlasitosti je vypnutý.');
+            continue;
+          }
 
           // něco zaznělo, ale bez slov: když to byl hlas hráče, ať to zopakuje
           const hlasitost = spickaUseku();

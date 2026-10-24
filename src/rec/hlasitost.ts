@@ -18,8 +18,22 @@ let reference: number | null = null;
 let hlasitychVzorku = 0;
 let posledniHlas = 0;
 
+/**
+ * Telefon nebo tablet? Android i iOS dávají mikrofon jen jednomu odběrateli: když
+ * ho drží měření hlasitosti (getUserMedia), rozpoznávání řeči dostává ticho nebo
+ * hned skončí, často bez jakékoli chyby. Na mobilu se proto hlasitost neměří.
+ */
+export function jeMobil(ua = typeof navigator !== 'undefined' ? navigator.userAgent : '', dotykovychBodu = typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0): boolean {
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+  // iPadOS se hlásí jako Mac, prozradí ho dotyková obrazovka
+  return /Macintosh/.test(ua) && dotykovychBodu > 1;
+}
+
 export const mereniDostupne =
-  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof AudioContext !== 'undefined';
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof AudioContext !== 'undefined' && !jeMobil();
+
+/** Zařízení se ukázalo, že neumí zároveň měřit a poslouchat; měření už se nezapne. */
+let zakazano = false;
 
 export function meriSe(): boolean {
   return !!ctx;
@@ -28,7 +42,7 @@ export function meriSe(): boolean {
 /** Spustí měření. Vrací false, když mikrofon nejde otevřít. */
 export async function zapniMereni(): Promise<boolean> {
   if (ctx) return true;
-  if (!mereniDostupne) return false;
+  if (!mereniDostupne || zakazano) return false;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       // Stejné zpracování zvuku, jaké používá rozpoznávání řeči. Chrome má pro jeden
@@ -65,6 +79,12 @@ export function vypniMereni() {
   ctx?.close().catch(() => {});
   stream = null;
   ctx = null;
+}
+
+/** Vypne měření natrvalo (do obnovení stránky), protože blokuje rozpoznávání řeči. */
+export function zakazMereni() {
+  zakazano = true;
+  vypniMereni();
 }
 
 /** Začne nový úsek poslechu. */
