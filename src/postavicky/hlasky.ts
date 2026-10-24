@@ -510,6 +510,155 @@ export const BANAN: Hlasky = {
   ],
 };
 
+export const VOJTACHU: Hlasky = {
+  uvod: [
+    'Čau, já jsem Vojtachu! Vojta-chů! Mysli si nějaký zvíře a já ho uhodnu, to je jasný jak facka.',
+    'Nazdar, mladej! Tady Vojtachu, pokémon z vesnice. Vymysli si zvíře a jdem na to.',
+    'Zdravíčko! Vojtachu, žlutej jak řepka a vousatej jak dědek. Mysli si zvíře!',
+    'Vojta-chů! Zrovna jsem nakydal chlív, tak můžem hádat. Mysli si zvíře.',
+  ],
+  zacatek: [
+    'Tak jdem na to, žádný cavyky!',
+    'Vyhrnu rukávy a jedem.',
+    'Vojta-chů! Startuju traktor, jedem.',
+    'Dobrý, tak hezky popořádku.',
+  ],
+  reakce: {
+    ano: [
+      'No vidíš, to je ono!',
+      'Jasná páka!',
+      'Sedí to jak čepice na hlavě.',
+      'Výborně, to beru všema deseti.',
+      'Ha, to jsem si myslel.',
+      'Jasně, píšu si to křídou na vrata.',
+      'Fajn, to je dobrá stopa.',
+      'Jo! Vojta-chů!',
+    ],
+    ne: [
+      'Ne? Tak to šmytec.',
+      'Dobře, tudy cesta nevede, tam je jenom bláto.',
+      'Ne? Tak to vyhodím na hnůj.',
+      'Kruci. Tak jinak.',
+      'Nevadí, oreme dál.',
+      'Ne? Tak to vezmem z druhýho konce pole.',
+    ],
+    nevim: [
+      'Nevíš? To nevadí, já taky nevím, kde jsem nechal vidle.',
+      'Klídek, jedem dál.',
+      'To nic, tohle přeskočíme jak louži.',
+      'Nevíš? Tak to necháme ležet ladem.',
+    ],
+    mozna: [
+      'Může bejt? To je jak počasí na vsi. Uvidí se.',
+      'Tak napůl, jako půl bochníku.',
+      'Aha, něco mezi. Beru.',
+      'Možná? Hmm, tak to si dám za ucho.',
+    ],
+  },
+  prekvapeni: [
+    'Hergot! Tak to jsem nečekal!',
+    'Ty jo, z toho mi málem spadla čepice!',
+    'No nazdar! Tohle mě koplo jak elektrickej ohradník.',
+    'Kruci! Tohle mi zamíchalo bramborama.',
+  ],
+  pokrok: [
+    'Vojta-chů! To mi hodně pomohlo!',
+    'Jo, teď to jede jak traktor z kopce.',
+    'Výborně, už to mám skoro posekaný.',
+    'Tohle je odpověď jako hrom!',
+  ],
+  tuseni: [
+    'Hmm, už něco větřím. Jako když se v troubě peče buchta.',
+    'Fousy mi cukaj, něco tuším…',
+    'Už mám takový tušení, jak když se blíží bouřka…',
+  ],
+  blizko: [
+    'Už to skoro mám, fousy mi jiskřej!',
+    'Ještě kousek a je to v pytli!',
+    'Už jsem blízko, cejtím to v kostech.',
+    'Už je to na spadnutí jak zralá hruška…',
+  ],
+  dlouho: [
+    'Tohle je ale potvora zvíře! Delší než žně.',
+    'Hergot, to je oříšek. Ale já to nevzdám, já jsem z vesnice.',
+    'Ty mi dáváš! Z toho přemejšlení se mi kouří z čepice.',
+  ],
+  prechod: ['A teď…', 'Tak hele.', 'Další otázka.', 'Řekni mi…', 'A co tohle?'],
+  tip: [
+    'Mám to! Je to {z}?',
+    'Vojtachu říká… {z}?',
+    'Tipuju, že je to {z}. Sedí?',
+    'Fousy mi napovídaj, že je to {z}. Jo?',
+  ],
+  tipJisty: [
+    'Vsadím celej traktor, že je to {z}!',
+    'To je jasný jak facka. Je to {z}!',
+    'Dám za to ruku do ohně: je to {z}!',
+  ],
+  tipNejisty: [
+    'Hmm, zkusím to naslepo… není to {z}?',
+    'Střelím od boku. Je to {z}?',
+    'Tápu jak v mlze, ale… je to {z}?',
+  ],
+  vyhra: [
+    'Vojta-chů! Uhodl jsem to!',
+    'No vidíš! Na Vojtachu nikdo nemá!',
+    'Trefa! Za to si dám k obědu knedlo vepřo zelo.',
+  ],
+  vyhraRychla: [
+    'Ha, to bylo rychlejší než podojit kozu!',
+    'Raz dva a hotovo! Na mě si musíš vymyslet něco těžšího.',
+  ],
+  vyhraTezka: [
+    'Uf, to byla dřina jak na poli! Ale uhodl jsem to.',
+    'Konečně! Zapotil jsem se jak kůň, ale mám to!',
+  ],
+  znovu: ['Dáme ještě jedno kolo?', 'Jedem znova?', 'Zahrajem si ještě? Vojta-chů!'],
+  omyl: [
+    'Vedle jak ta jedle. Nevadí, hádám dál!',
+    'Kruci, to nebylo ono. Ale já se nedám.',
+    'Netrefil jsem se. To se stane i nejlepšímu sedlákovi.',
+  ],
+  omylZnovu: [
+    'Zase vedle? Hergot, to je ale potvora!',
+    'Ach jo, z toho mi zplihnou fousy. Ale ptám se dál.',
+    'Tak tohle je oříšek jak kokosák. Hádám dál!',
+  ],
+  vzdavam: [
+    'Tak to je na mě moc, hážu vidle do žita. Vzdávám se! Co to bylo za zvíře?',
+    'Hergot, tentokrát jsi mě dostal. Vzdávám se. Prozradíš mi, co to bylo?',
+  ],
+  nadavka: {
+    hloupost: [
+      sebeironie('Hloupej? No jo, já mám jenom obecnou školu. Ale zvířata znám líp než kdo jinej!'),
+      dotcena('No dovol! Tak tohle mě urazilo až do fousů.'),
+      sebeironie('Tupej jak motyka? Možná. Ale motyka zvíře neuhodne, a já jo.'),
+      hrava('Hele, hele, nech toho, nebo půjdeš se mnou kydat hnůj!'),
+      dotcena('Hmpf. Fousy se mi naježily. Ale hádat budu dál.'),
+      posmutnela('Au. Tohle mě píchlo jak vidle do paty. Ale přežiju to.'),
+    ],
+    hluchota: [
+      sebeironie('Hluchej? To mám z traktoru, ten řve jak tur. Ale už slyším.'),
+      hrava('Cože? Haha, dělám si srandu. Slyším dobře.'),
+      dotcena('Já slyším výborně! Jenom jsem měl v uchu seno.'),
+      sebeironie('Ty jo, asi mi do ucha vlezla myš. Teď už slyším.'),
+    ],
+    hrubost: [
+      ohromena('Hergot! Takový slova u nás nesmí ani do chlíva!'),
+      dotcena('Hmpf. Tohle slovo vyhodím na hnůj. A je pryč!'),
+      hrava('Ošklivý slovo? Já radši řeknu hezký: buchtička. Slyšíš ten rozdíl?'),
+      ohromena('Ty jo! Takhle nenadává ani náš kohout, když ho ráno nikdo neposlouchá.'),
+      dotcena('Z toho se mi zkroutily fousy. Ale vidlák vydrží hodně.'),
+      hrava('Klídek, jsem jenom žlutej pokémon. Tak hádáme dál?'),
+    ],
+  },
+  nadavkaZnovu: [
+    'Dneska jsi ale divokej jak býk na pastvě! Nevadí, jedem dál.',
+    'Ty mě zkoušíš, co? Vojtachu vydrží všechno, i bouřku na poli.',
+  ],
+  nerozumim: ['Cože? Mám v uchu seno.', 'Prosím?', 'Ještě jednou, mladej?', 'Hm? To mi uletělo.', 'Nerozuměl jsem, řekni to znova.'],
+};
+
 /** Hlášky podle id postavičky (stejná id jako v POSTAVICKY). */
 export const HLASKY: Record<string, Hlasky> = {
   liska: LISKA,
@@ -517,4 +666,5 @@ export const HLASKY: Record<string, Hlasky> = {
   sova: SOVA,
   zabak: ZABAK,
   banan: BANAN,
+  vojtachu: VOJTACHU,
 };
