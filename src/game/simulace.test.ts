@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import db from '../data/zvirata.json';
 import type { Databaze } from './engine';
-import { omylyNaPrvniTip, presnyHrac, simuluj, vahavyHrac } from './simulace';
+import { hracSJednimOmylem, mulberry32, odehraj, omylyNaPrvniTip, presnyHrac, simuluj, vahavyHrac } from './simulace';
 
 const databaze = db as unknown as Databaze;
 
@@ -22,6 +22,8 @@ describe('simulace hádání', () => {
     expect(r.uspesnost).toBeGreaterThan(0.97);
     expect(r.naPrvni).toBeGreaterThan(0.97);
     expect(r.prumerOtazek).toBeLessThan(11);
+    expect(r.rozporneTipy).toBe(0);
+    expect(r.zbytecneOtazky).toBe(0);
   });
 
   it('běžný hráč (5 % omylů, 10 % nevím)', () => {
@@ -30,6 +32,8 @@ describe('simulace hádání', () => {
     expect(r.uspesnost).toBeGreaterThan(0.98);
     expect(r.naPrvni).toBeGreaterThan(0.9);
     expect(r.prumerOtazek).toBeLessThan(14);
+    expect(r.rozporneTipy).toBe(0);
+    expect(r.zbytecneOtazky).toBe(0);
   });
 
   it('nepozorný hráč (10 % omylů, 15 % nevím)', () => {
@@ -37,5 +41,39 @@ describe('simulace hádání', () => {
     console.log('nepozorný hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.93);
     expect(r.naPrvni).toBeGreaterThan(0.7);
+    expect(r.rozporneTipy).toBe(0);
+    expect(r.zbytecneOtazky).toBe(0);
+  });
+
+  it('jeden omyl u jasné vlastnosti: zvíře stejně uhodne a mezitím netipuje nesmysly', () => {
+    let uhodl = 0, naPrvni = 0, her = 0;
+    const rozporne: string[] = [];
+    databaze.zvirata.forEach((z, cil) => {
+      for (let i = 0; i < 4; i++) {
+        const v = odehraj(databaze, cil, hracSJednimOmylem(), {}, mulberry32(77 * cil + i));
+        her++;
+        if (v.uhodl) uhodl++;
+        if (v.uhodl && v.tipu === 1) naPrvni++;
+        rozporne.push(...v.rozporneTipy.map((t) => `${z.jmeno} ← ${t}`));
+      }
+    });
+    console.log('jeden omyl', { uspesnost: uhodl / her, naPrvni: naPrvni / her });
+    expect(rozporne).toEqual([]);
+    expect(uhodl / her).toBeGreaterThan(0.99);
+    expect(naPrvni / her).toBeGreaterThan(0.93);
+  });
+
+  it('zvíře, které postavička nezná: tipuje jen zvířata, která sedí na odpovědi', () => {
+    // každé zvíře zkusíme "schovat" a hrát, jako by ho databáze neměla
+    const rozporne: string[] = [];
+    const zbytecne: string[] = [];
+    databaze.zvirata.forEach((z, i) => {
+      const bez = { ...databaze, zvirata: databaze.zvirata.filter((_, j) => j !== i) };
+      const v = odehraj(bez, -1, presnyHrac, {}, mulberry32(i), z.a);
+      rozporne.push(...v.rozporneTipy.map((t) => `${z.jmeno} ← ${t}`));
+      zbytecne.push(...v.zbytecneOtazky.map((q) => `${z.jmeno}: ${q}`));
+    });
+    expect(rozporne).toEqual([]);
+    expect(zbytecne).toEqual([]);
   });
 });

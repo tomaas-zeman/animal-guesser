@@ -5,6 +5,12 @@
 // Další otázka je ta, po které čekáme nejmenší zbývající nejistotu (entropii),
 // tedy největší informační zisk. Jedna špatná odpověď proto zvíře nevyřadí,
 // jen ho odsune dozadu.
+//
+// Dvě pojistky navíc, aby hádání působilo logicky:
+// - Pravidla (pták má peří, pták není savec…) odvodí, co už z odpovědí plyne,
+//   a na to se postavička znovu neptá.
+// - Zvíře, které jasně odporuje některé odpovědi (řekl "není noční" a sova je
+//   noční vždycky), se netipuje, dokud jsou ve hře zvířata bez rozporu.
 
 export type Odpoved = 'ano' | 'ne' | 'nevim' | 'mozna';
 
@@ -18,6 +24,45 @@ export interface Zvire {
 export interface Databaze {
   otazky: Record<string, string>;
   zvirata: Zvire[];
+  /** "a -> b", "a -> !b", "!a -> b"…: když platí levá strana, platí i pravá (a obráceně její opak) */
+  pravidla?: string[];
+  /** skupiny vlastností, ze kterých platí nejvýš jedna (savec, pták, ryba…) */
+  vylucne?: string[][];
+}
+
+/** Vlastnost s hodnotou: [id, platí?] */
+type Fakt = [string, boolean];
+
+export interface Implikace {
+  kdyz: Fakt;
+  pak: Fakt;
+}
+
+function fakt(text: string): Fakt {
+  const t = text.trim();
+  return t.startsWith('!') ? [t.slice(1).trim(), false] : [t, true];
+}
+
+/** Rozloží pravidla databáze na implikace i s obměnami (z "a -> b" plyne i "!b -> !a"). */
+export function implikace(db: Databaze): Implikace[] {
+  const vysledek: Implikace[] = [];
+  const pridej = (kdyz: Fakt, pak: Fakt) => {
+    vysledek.push({ kdyz, pak }, { kdyz: [pak[0], !pak[1]], pak: [kdyz[0], !kdyz[1]] });
+  };
+  for (const pravidlo of db.pravidla ?? []) {
+    const [l, p] = pravidlo.split('->');
+    if (p === undefined) throw new Error(`špatné pravidlo: ${pravidlo}`);
+    pridej(fakt(l), fakt(p));
+  }
+  for (const skupina of db.vylucne ?? []) {
+    for (const a of skupina) for (const b of skupina) if (a < b) pridej([a, true], [b, false]);
+  }
+  return vysledek;
+}
+
+/** Odpovídá zvíře s pravděpodobností p jasně opačně, než hráč řekl? */
+export function jeRozpor(p: number, odpoved: Odpoved): boolean {
+  return (odpoved === 'ano' && p <= 0.1) || (odpoved === 'ne' && p >= 0.9);
 }
 
 export type Tah =
@@ -80,15 +125,22 @@ export class Hra {
   private rng: () => number;
   /** pravděpodobnosti zvířat (normalizované, vyloučená mají 0) */
   pst: number[];
+  /** u kolika odpovědí zvíře jasně nesedí */
+  rozpory: number[];
   polozene = new Set<string>();
+  /** co už z odpovědí plyne (přímo nebo podle pravidel) */
+  zname = new Map<string, boolean>();
   historie: { id: string; odpoved: Odpoved }[] = [];
   spatneTipy: number[] = [];
+  private pravidla: Implikace[];
 
   constructor(db: Databaze, nastaveni: Partial<Nastaveni> = {}, rng: () => number = Math.random) {
     this.db = db;
     this.nastaveni = { ...vychoziNastaveni, ...nastaveni };
     this.rng = rng;
     this.pst = db.zvirata.map(() => 1 / db.zvirata.length);
+    this.rozpory = db.zvirata.map(() => 0);
+    this.pravidla = implikace(db);
   }
 
   get pocetOtazek(): number {
@@ -115,7 +167,24 @@ export class Hra {
     this.historie.push({ id, odpoved });
     const { chyba } = this.nastaveni;
     this.pst = this.pst.map((p, i) => p * verohodnost(this.db.zvirata[i].a[id] ?? 0, odpoved, chyba));
+    this.rozpory = this.rozpory.map((r, i) => r + (jeRozpor(this.db.zvirata[i].a[id] ?? 0, odpoved) ? 1 : 0));
     this.normalizuj();
+    if (odpoved === 'ano' || odpoved === 'ne') this.odvod(id, odpoved === 'ano');
+  }
+
+  /** Zapíše fakt a všechno, co z něj podle pravidel plyne. První zjištění platí. */
+  private odvod(id: string, plati: boolean): void {
+    if (this.zname.has(id)) return;
+    this.zname.set(id, plati);
+    const fronta: Fakt[] = [[id, plati]];
+    while (fronta.length) {
+      const [a, va] = fronta.pop()!;
+      for (const { kdyz, pak } of this.pravidla) {
+        if (kdyz[0] !== a || kdyz[1] !== va || this.zname.has(pak[0])) continue;
+        this.zname.set(pak[0], pak[1]);
+        fronta.push(pak);
+      }
+    }
   }
 
   /** Výsledek tipu. Při omylu zvíře vyřadí a hraje se dál. */
@@ -131,8 +200,20 @@ export class Hra {
     const poradi = this.poradi();
     if (poradi.length === 0 || this.spatneTipy.length >= n.maxTipu) return { typ: 'vzdavam' };
 
+    const tipni = (x: { index: number; pst: number }): Tah => ({ typ: 'tip', index: x.index, zvire: this.db.zvirata[x.index], jistota: x.pst });
     const nej = poradi[0];
-    const tip: Tah = { typ: 'tip', index: nej.index, zvire: this.db.zvirata[nej.index], jistota: nej.pst };
+
+    // Favorit odporuje některé odpovědi, ale jsou tu zvířata bez rozporu (nebo s menším):
+    // ta se musí vyloučit dřív, než ho postavička tipne.
+    const minRozporu = Math.min(...poradi.map((x) => this.rozpory[x.index]));
+    const souhlasi = poradi.filter((x) => this.rozpory[x.index] === minRozporu);
+    if (this.rozpory[nej.index] > minRozporu) {
+      const otazka = this.pocetOtazek < n.maxOtazek ? this.vyberOtazku(this.ohnisko(nej.index, souhlasi)) : null;
+      if (otazka) return { typ: 'otazka', id: otazka, text: this.db.otazky[otazka] };
+      return tipni(souhlasi[0]);
+    }
+
+    const tip = tipni(nej);
     const druhy = poradi[1]?.pst ?? 0;
 
     if (nej.pst >= n.jistotaTipu) return tip;
@@ -145,19 +226,37 @@ export class Hra {
     return { typ: 'otazka', id: otazka, text: this.db.otazky[otazka] };
   }
 
+  /**
+   * Váhy pro otázku, která rozsoudí favorita a zvířata bez rozporu:
+   * favorit dostane polovinu, zvířata bez rozporu druhou polovinu podle svých pravděpodobností.
+   */
+  private ohnisko(favorit: number, souhlasi: { index: number; pst: number }[]): number[] {
+    const w = this.pst.map(() => 0);
+    const suma = souhlasi.reduce((s, x) => s + x.pst, 0);
+    for (const x of souhlasi) w[x.index] = suma > 0 ? (0.5 * x.pst) / suma : 0.5 / souhlasi.length;
+    w[favorit] = 0.5;
+    return w;
+  }
+
+  /** Dá se na otázku ještě ptát? Ne, když už padla, nebo odpověď plyne z předchozích. */
+  muzeSePtat(id: string): boolean {
+    return !this.polozene.has(id) && !this.zname.has(id);
+  }
+
   /** Otázka s nejmenší očekávanou entropií po odpovědi ano/ne. */
-  vyberOtazku(): string | null {
+  vyberOtazku(vahy: number[] = this.pst): string | null {
     const { chyba, pestrost } = this.nastaveni;
-    const h0 = entropie(this.pst);
+    const h0 = entropie(vahy);
     const kandidati: { id: string; zisk: number }[] = [];
 
     for (const id of Object.keys(this.db.otazky)) {
-      if (this.polozene.has(id)) continue;
+      if (!this.muzeSePtat(id)) continue;
       const wAno: number[] = [];
       const wNe: number[] = [];
       let pAno = 0;
       let pNe = 0;
-      this.pst.forEach((p, i) => {
+      vahy.forEach((p, i) => {
+        if (p === 0) return;
         const v = this.db.zvirata[i].a[id] ?? 0;
         const a = p * verohodnost(v, 'ano', chyba);
         const ne = p * verohodnost(v, 'ne', chyba);

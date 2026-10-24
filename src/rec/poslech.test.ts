@@ -42,6 +42,41 @@ describe('rozpoznání odpovědi z řeči', () => {
     it(`"${text}" → ${cekam}`, () => expect(rozpoznejOdpoved([text])).toBe(cekam));
   }
 
+  const zapory: [string, string][] = [
+    ['Neumí', 'Umí létat?'],
+    ['nežije', 'Žije v lese?'],
+    ['Nejí', 'Jí maso nebo jiná zvířata?'],
+    ['nemá', 'Má peří?'],
+    ['No ne', 'Je to pták?'],
+    ['Né', 'Je to pták?'],
+    ['ne ne ne', 'Je to pták?'],
+    ['Není.', 'Je to drobný bezobratlý živočich, který není hmyz, třeba pavouk nebo šnek?'],
+    ['nemyslím', 'Je to savec?'],
+    ['nejspíš ne', 'Je to savec?'],
+    ['nie', 'Je to savec?'],
+  ];
+  for (const [text, otazka] of zapory) {
+    it(`"${text}" na „${otazka}“ → ne`, () => expect(rozpoznejOdpoved([text], otazka)).toBe('ne'));
+  }
+
+  const kladne: [string, string][] = [
+    ['Umí', 'Umí létat?'],
+    ['létá', 'Umí létat?'],
+    ['plave', 'Umí plavat?'],
+    ['Žije', 'Žije v lese?'],
+    ['savec', 'Je to savec?'],
+    ['bzučí', 'Bzučí?'],
+  ];
+  for (const [text, otazka] of kladne) {
+    it(`"${text}" na „${otazka}“ → ano`, () => expect(rozpoznejOdpoved([text], otazka)).toBe('ano'));
+  }
+
+  it('"někdy" ani "nejspíš" nejsou zápor', () => {
+    expect(rozpoznejOdpoved(['někdy'], 'Je aktivní hlavně v noci?')).toBe('mozna');
+    expect(rozpoznejOdpoved(['nejspíš'], 'Je to savec?')).toBe('mozna');
+    expect(rozpoznejOdpoved(['nevím'], 'Umí létat?')).toBe('nevim');
+  });
+
   it('zkusí i další varianty přepisu', () => {
     expect(rozpoznejOdpoved(['banán', 'ano'])).toBe('ano');
   });

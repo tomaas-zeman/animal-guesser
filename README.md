@@ -13,8 +13,12 @@ Hraj na **https://tomaas-zeman.github.io/animal-guesser/**
   se pravděpodobnosti zvířat po každé odpovědi přepočítají (Bayes) a další otázka je ta s největším
   informačním ziskem. Jedna špatná odpověď proto zvíře nevyřadí, jen ho odsune. „Nevím“ nic nemění,
   „může být“ je slabé ano. Při špatném tipu se zvíře vyřadí a hra pokračuje.
+- **Pravidla** (`pravidla` a `vylucne` v databázi): pták má peří, savec neklade vejce, ryba má ploutve…
+  Co z odpovědí plyne, na to se postavička už neptá. Zvíře, které jasně odporuje některé odpovědi,
+  netipuje, dokud jsou ve hře zvířata bez rozporu.
 - **Simulace** [`src/game/simulace.test.ts`](src/game/simulace.test.ts) odehraje stovky her s hráči,
-  kteří se občas spletou, a hlídá úspěšnost.
+  kteří se občas spletou, a hlídá úspěšnost, tipy v rozporu s odpověďmi a zbytečné otázky.
+  [`databaze.test.ts`](src/game/databaze.test.ts) hlídá, že zvířata dodržují pravidla a dají se od sebe rozlišit.
 - **Řeč** [`src/rec/`](src/rec): mluvení přes `speechSynthesis` (cs-CZ), poslech přes Web Speech API
   (Chrome, Edge, Safari). Tlačítka fungují vždy.
 - **Postavičky** [`src/postavicky/`](src/postavicky): liška Lili, robot Robík, sova Soňa a žabák Kvak,
@@ -32,6 +36,6 @@ npm run build      # produkční build do dist/
 Přidej `?debug=1` do adresy a uvidíš, která zvířata postavička zrovna podezírá.
 
 **Přidání zvířete:** připiš řádek do `zvirata` v `src/data/zvirata.json` a spusť `npm test`.
-Simulace ukáže, jestli se nové zvíře dá uhodnout.
+Testy ukážou, jestli nové zvíře odporuje pravidlům a jestli se dá uhodnout a odlišit od ostatních.
 
 Každý push do `master` spustí testy, build a nasazení na GitHub Pages.
