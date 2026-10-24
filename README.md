@@ -1,1 +1,37 @@
-# animal-guesser
+# Hádání zvířat
+
+Webová hra pro děti: animovaná 3D postavička se česky ptá na otázky, ty odpovídáš
+**ano / ne / nevím / může být** (hlasem nebo tlačítky) a ona hádá, jaké zvíře si myslíš.
+
+Hraj na **https://tomaas-zeman.github.io/animal-guesser/**
+
+## Jak to funguje
+
+- **Databáze** [`src/data/zvirata.json`](src/data/zvirata.json): otázky a zvířata. U každého zvířete je
+  pro vlastnost pravděpodobnost odpovědi „ano“ (0 až 1), chybějící vlastnost znamená 0.
+- **Hádání** [`src/game/engine.ts`](src/game/engine.ts): místo pevného rozhodovacího stromu
+  se pravděpodobnosti zvířat po každé odpovědi přepočítají (Bayes) a další otázka je ta s největším
+  informačním ziskem. Jedna špatná odpověď proto zvíře nevyřadí, jen ho odsune. „Nevím“ nic nemění,
+  „může být“ je slabé ano. Při špatném tipu se zvíře vyřadí a hra pokračuje.
+- **Simulace** [`src/game/simulace.test.ts`](src/game/simulace.test.ts) odehraje stovky her s hráči,
+  kteří se občas spletou, a hlídá úspěšnost.
+- **Řeč** [`src/rec/`](src/rec): mluvení přes `speechSynthesis` (cs-CZ), poslech přes Web Speech API
+  (Chrome, Edge, Safari). Tlačítka fungují vždy.
+- **Postavičky** [`src/postavicky/`](src/postavicky): liška Lili, robot Robík, sova Soňa a žabák Kvak,
+  poskládaní z 3D tvarů v React Three Fiber (three.js).
+
+## Vývoj
+
+```bash
+npm install
+npm run dev        # vývojový server
+npm test           # testy a simulace hádání
+npm run build      # produkční build do dist/
+```
+
+Přidej `?debug=1` do adresy a uvidíš, která zvířata postavička zrovna podezírá.
+
+**Přidání zvířete:** připiš řádek do `zvirata` v `src/data/zvirata.json` a spusť `npm test`.
+Simulace ukáže, jestli se nové zvíře dá uhodnout.
+
+Každý push do `master` spustí testy, build a nasazení na GitHub Pages.
