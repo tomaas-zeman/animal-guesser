@@ -10,6 +10,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
   },
   test: {
-    testTimeout: 120_000,
+    // simulace na ~250 zvířatech běží několik minut
+    testTimeout: 600_000,
   },
 });
