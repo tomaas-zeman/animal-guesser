@@ -10,7 +10,7 @@
 //   ELEVENLABS_API_KEY=… npm run hlasy:tts -- elevenlabs --postava banan --limit 20
 //
 // Přepínače: --postava <id> (jinak všechny), --limit <n> (na zkoušku), --prepsat (i už nahrané),
-// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou. --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
+// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou, TTS_ZA_MINUTU=<n> strop za minutu (Google výchozí 30). --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -161,11 +161,22 @@ for (const postava of postavy) {
   // pár požadavků najednou, ať to netrvá věčnost, ale služba nezačne odmítat
   let dalsi = 0;
   let zaSebou = 0;
+  // strop požadavků za minutu, ať nenarazíme na kvótu API (Google má limit za minutu)
+  const zaMinutu = Number(process.env.TTS_ZA_MINUTU) || (sluzba === 'google' ? 30 : 0);
+  let volno = Date.now();
+  const pockejNaRadu = async () => {
+    if (!zaMinutu) return;
+    const kdy = Math.max(volno, Date.now());
+    volno = kdy + 60_000 / zaMinutu;
+    await new Promise((r) => setTimeout(r, kdy - Date.now()));
+  };
   const pracovnik = async () => {
     while (dalsi < fronta.length) {
       const u = fronta[dalsi++];
+      let limitu = 0;
       for (let pokus = 1; ; pokus++) {
         try {
+          await pockejNaRadu();
           const audio = await SLUZBY[sluzba as keyof typeof SLUZBY](textProTts(u), h);
           writeFileSync(join(slozka, `${u.id}.mp3`), Buffer.from(audio));
           celkem++;
@@ -174,6 +185,13 @@ for (const postava of postavy) {
           if (celkem % 25 === 0) console.log(`  … ${celkem} (chyb ${chyby.length})`);
           break;
         } catch (e) {
+          // překročená kvóta za minutu: počkat, až se uvolní, a nepočítat to jako chybu věty
+          if (/\b429\b|RESOURCE_EXHAUSTED|quota/i.test((e as Error).message) && ++limitu <= 20) {
+            if (limitu === 1) console.warn(`  ⏳ limit API, čekám: ${(e as Error).message.slice(0, 200)}`);
+            await new Promise((r) => setTimeout(r, 30_000));
+            pokus--;
+            continue;
+          }
           // Edge při zahlcení vrací prázdné audio: chvíli počkat a zkusit znovu
           if (pokus < 5) {
             await new Promise((r) => setTimeout(r, 1500 * 2 ** pokus));
