@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       postava:
-        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan, vojtacu), prázdné = všechny'
+        description: 'Jen jedna postavička (liska, banan, vojtacu), prázdné = všechny'
         required: false
         default: ''
       prepsat:
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        postava: [liska, robot, sova, zabak, banan, vojtacu]
+        postava: [liska, banan, vojtacu]
     steps:
       - uses: actions/checkout@v4
         if: inputs.postava == '' || inputs.postava == matrix.postava
@@ -98,7 +98,7 @@ jobs:
           # složky postaviček, které už ve hře nejsou (třeba po přejmenování), se smažou; seznam je stejný jako v matrix
           for d in public/hlasy/*/; do
             p=$(basename "$d")
-            case " liska robot sova zabak banan vojtacu " in *" $p "*) ;; *) rm -rf "$d" ;; esac
+            case " liska banan vojtacu " in *" $p "*) ;; *) rm -rf "$d" ;; esac
           done
           git add -A public/hlasy
           if git diff --cached --quiet; then echo "Nic nového."; exit 0; fi
