@@ -161,9 +161,11 @@ export function Vojtacu(props: PostavickaProps) {
       ucho.rotation.z = THREE.MathUtils.lerp(ucho.rotation.z, s * -(rozevreni + cuk), 0.15);
     }
     if (steblo.current) {
-      // stéblo v puse se pohupuje, při přemýšlení se s ním žvýká
-      const rychlost = n === 'premysli' ? 6 : 1.5;
-      steblo.current.rotation.z = -1.0 + Math.sin(t * rychlost) * (n === 'premysli' ? 0.2 : 0.06);
+      // stéblo drží v koutku pusy: pohupuje se, při přemýšlení se s ním žvýká, při mluvení cuká s pusou
+      const otevreni = pusa.current ? pusa.current.scale.y : 0;
+      const zvykani = n === 'premysli' ? Math.sin(t * 6) * 0.2 : Math.sin(t * 1.5) * 0.06;
+      steblo.current.rotation.z = 1.1 + zvykani - otevreni * 0.15;
+      steblo.current.position.y = -0.1 - otevreni * 0.015;
     }
     if (ocas.current) {
       const vrteni = jeVesela(n) ? Math.sin(t * 12) * 0.35 : Math.sin(t * 1.8) * 0.08;
@@ -303,10 +305,15 @@ export function Vojtacu(props: PostavickaProps) {
             <Pusa pusaRef={pusa} usmevRef={usmev} pozice={[0, -0.16, 0.44]} sirka={0.12} barva="#6a2418" natoceni={-0.4} />
 
             {/* stéblo trávy v koutku pusy */}
-            <group ref={steblo} position={[0.1, -0.16, 0.44]} rotation={[0.3, 0, -1.0]}>
-              <mesh position={[0, -0.14, 0]}>
-                <cylinderGeometry args={[0.006, 0.008, 0.28, 6]} />
-                <Mat barva="#d8c25a" />
+            {/* koutek zavřené pusy (úsměvu); míří ven do strany a dopředu, začátek je schovaný v puse */}
+            <group ref={steblo} position={[0.07, -0.1, 0.45]} rotation={[-0.5, 0, 1.1]}>
+              <mesh position={[0, -0.11, 0]} castShadow>
+                <cylinderGeometry args={[0.008, 0.012, 0.26, 8]} />
+                <Mat barva="#d9b84a" lesk={0.3} />
+              </mesh>
+              <mesh position={[0, -0.255, 0]} rotation={[0, 0, Math.PI]}>
+                <coneGeometry args={[0.012, 0.05, 8]} />
+                <Mat barva="#c9a640" lesk={0.3} />
               </mesh>
             </group>
 
