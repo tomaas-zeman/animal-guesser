@@ -1,11 +1,11 @@
 import type { ComponentType } from 'react';
 import type { Hlas } from '../rec/mluveni';
 import { Banan } from './Banan';
-import { BANAN, LISKA, ROBOT, SOVA, VOJTACHU, ZABAK, type Hlasky } from './hlasky';
+import { BANAN, LISKA, ROBOT, SOVA, VOJTACU, ZABAK, type Hlasky } from './hlasky';
 import { Liska } from './Liska';
 import { Robot } from './Robot';
 import { Sova } from './Sova';
-import { Vojtachu } from './Vojtachu';
+import { Vojtacu } from './Vojtacu';
 import { Zabak } from './Zabak';
 import type { PostavickaProps } from './spolecne';
 
@@ -73,15 +73,15 @@ export const POSTAVICKY: Postavicka[] = [
     hlasky: BANAN,
   },
   {
-    id: 'vojtachu',
-    jmeno: 'Pokémon Vojtachu',
-    popis: 'Žlutý vousatý pokémon z vesnice. Drsňák od rány, ale srdce má zlaté.',
+    id: 'vojtacu',
+    jmeno: 'Pokémon Vojtaču',
+    popis: 'Žlutý ušatý pokémon z vesnice. Drsňák od rány, ale srdce má zlaté.',
     barva: '#c99a00',
     pozadi: ['#f4f7c8', '#c5e07a'],
-    // drsný vidlák s pištivým klučičím hláskem jako po nadechnutí hélia
-    hlas: { pitch: 1.9, rate: 1.12, pohlavi: 'muz', helium: true, nahrada: { pitch: 2, rate: 1.12 } },
-    Komponenta: Vojtachu,
-    hlasky: VOJTACHU,
+    // drsný vidlák, ale ještě kluk: o kus vyšší a svižnější hlas
+    hlas: { pitch: 1.25, rate: 1.05, pohlavi: 'muz', nahrada: { pitch: 0.85, rate: 1.05 } },
+    Komponenta: Vojtacu,
+    hlasky: VOJTACU,
   },
 ];
 

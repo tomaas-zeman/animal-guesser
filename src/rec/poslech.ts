@@ -299,7 +299,7 @@ const ZAPOR_PRED = /\b(nejsi|nejses|neses|neni|nebyl[a-z]*|nebudes)( [a-z]+)?\s*
 
 /** Slova, která kolem nadávky nic neříkají; po jejím odstranění se z nich nesmí stát "je" = ano. */
 const VATA =
-  /\b(ty|ti|te|tebe|jsi|si|ses|jses|sis|je|jsou|to|ta|ten|ale|fakt|vazne|uplne|totalne|strasne|hrozne|moc|tak|takova|takovy|takovej|jako|proste|normalne|zase|porad|uz|dneska|nejaka|nejakej|nejaky|tvoje|tvuj|otazka|otazku|otazky|odpoved|no|hele|lisko|liska|lili|robiku|robik|robote|sovo|sova|sono|sona|zabaku|zabak|kvaku|kvak|banane|banan|bohousi|bohous|vojtachu|vojtacho|vojto|pokemone|pokemon|a|i)\b/g;
+  /\b(ty|ti|te|tebe|jsi|si|ses|jses|sis|je|jsou|to|ta|ten|ale|fakt|vazne|uplne|totalne|strasne|hrozne|moc|tak|takova|takovy|takovej|jako|proste|normalne|zase|porad|uz|dneska|nejaka|nejakej|nejaky|tvoje|tvuj|otazka|otazku|otazky|odpoved|no|hele|lisko|liska|lili|robiku|robik|robote|sovo|sova|sono|sona|zabaku|zabak|kvaku|kvak|banane|banan|bohousi|bohous|vojtacu|vojto|pokemone|pokemon|a|i)\b/g;
 
 /** Nejdelší věta, ve které se nadávka ještě hledá. */
 const MAX_SLOV_NADAVKY = 10;
