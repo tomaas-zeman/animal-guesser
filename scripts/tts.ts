@@ -172,8 +172,9 @@ for (const postava of postavy) {
           if (celkem % 25 === 0) console.log(`  … ${celkem}`);
           break;
         } catch (e) {
-          if (pokus < 3) {
-            await new Promise((r) => setTimeout(r, 1000 * 2 ** pokus));
+          // Edge při zahlcení vrací prázdné audio: chvíli počkat a zkusit znovu
+          if (pokus < 5) {
+            await new Promise((r) => setTimeout(r, 1500 * 2 ** pokus));
             continue;
           }
           // jedna nepovedená věta nezastaví ostatní, tu řekne dál syntéza prohlížeče
@@ -185,7 +186,7 @@ for (const postava of postavy) {
       }
     }
   };
-  await Promise.all(Array.from({ length: 4 }, pracovnik));
+  await Promise.all(Array.from({ length: sluzba === 'edge' ? 2 : 4 }, pracovnik));
 }
 
 console.log(`Hotovo: ${celkem} nahrávek, ${znaku} znaků.${values.zkouska ? ' (jen zkouška, nic se nenamluvilo)' : ''}`);

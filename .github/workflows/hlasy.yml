@@ -42,7 +42,20 @@ jobs:
         with:
           python-version: '3.12'
       - run: npm ci
-      - run: pip install edge-tts
+      - run: pip install --upgrade edge-tts
+      # rychlá kontrola, že Edge z runneru odpovídá; jinak nemá cenu namlouvat tisíce vět
+      - name: Ověřit edge-tts
+        run: |
+          pip show edge-tts | head -2
+          edge-tts --list-voices | grep -i cs-CZ || echo "seznam hlasů nedostupný"
+          ok=0
+          for args in "--voice en-US-AriaNeural --text Hello" "--voice cs-CZ-VlastaNeural --text Ahoj" "--voice cs-CZ-AntoninNeural --pitch=+5Hz --rate=+5% --text Ahoj"; do
+            echo "::group::$args"
+            if edge-tts $args --write-media /tmp/t.mp3 && [ -s /tmp/t.mp3 ]; then echo "OK $(stat -c%s /tmp/t.mp3) B"; ok=1; else echo "SELHALO"; fi
+            rm -f /tmp/t.mp3
+            echo "::endgroup::"
+          done
+          [ $ok = 1 ]
       - name: Namluvit
         env:
           POSTAVA: ${{ inputs.postava }}
