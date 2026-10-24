@@ -180,9 +180,10 @@ export default function App() {
       setSlyseno('');
       let nerozumi = 0;
       await poslouchejPorad(gen, async (texty, hlasitost) => {
+        const odpoved = rozpoznejOdpoved(texty);
         if (texty.length > 0) {
           // hovor okolo se tiše přeslechne a poslouchá se dál
-          if (!jeHrac(hlasitost)) {
+          if (!jeHrac(hlasitost, odpoved !== null)) {
             setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
             return false;
           }
@@ -191,13 +192,12 @@ export default function App() {
             return false;
           }
           setSlyseno(texty[0]);
-          if (jeZopakuj(texty)) {
+          if (!odpoved && jeZopakuj(texty)) {
             await pockej(premysleni());
             await mluv(posledniOtazka.current, gen);
             return false;
           }
         } else setSlyseno('…');
-        const odpoved = rozpoznejOdpoved(texty);
         if (odpoved && (!jenAnoNe || odpoved === 'ano' || odpoved === 'ne')) {
           kalibruj(hlasitost);
           odpovezRef.current(odpoved);
@@ -205,7 +205,8 @@ export default function App() {
         }
         nerozumi++;
         await pockej(premysleni());
-        const napoveda = nerozumi < 2 ? '' : jenAnoNe ? ' Stačí říct ano, nebo ne.' : ' Stačí říct ano, ne, nevím, nebo může být.';
+        // napoví až po několika nezdarech, a krátce, ať to nezdržuje
+        const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ' Řekni ano, nebo ne.' : ' Řekni ano, ne, nebo nevím.';
         const r = dejProjev().nerozumim();
         await mluv({ ...r, text: r.text + napoveda }, gen);
         return false;

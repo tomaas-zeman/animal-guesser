@@ -50,7 +50,7 @@ export const LISKA: Hlasky = {
   reakce: {
     ano: ['Ahaaa, chápu.', 'Aha!', 'Výborně.', 'To se hodí.', 'Jasně, jasně.', 'Ha, to jsem si myslela.', 'Mhm, dobře.', 'Super, to mi pomůže.'],
     ne: ['Hmm, dobře.', 'Aha, tak to ne.', 'Jasně.', 'Hmm.', 'Tak to škrtám.', 'Dobře, tudy cesta nevede.', 'Aha, škoda.'],
-    nevim: ['Nevadí.', 'To nic.', 'Dobře, zkusím to jinak.', 'Klidně, to se stává.', 'V pohodě, zeptám se na něco jiného.'],
+    nevim: ['Nevadí.', 'To nic.', 'Dobře.', 'Klidně.', 'V pohodě.'],
     mozna: ['Hmm, zajímavé.', 'Aha, možná…', 'Hmm, dobře.', 'Tak napůl, jo? Chápu.', 'Aha, něco mezi.'],
   },
   prekvapeni: ['Cože? Tak to jsem nečekala!', 'Ty jo! Tak to mě překvapilo.', 'Opravdu? No teda!', 'Ha! To mi zamíchalo kartami.'],
@@ -73,9 +73,11 @@ export const LISKA: Hlasky = {
     'Ach jo, tentokrát jsem prohrála. Vzdávám se. Prozradíš mi, co to bylo?',
   ],
   nerozumim: [
-    'Promiň, nerozuměla jsem. Můžeš to prosím zopakovat?',
-    'Hm? Tohle mi uteklo. Řekneš to ještě jednou?',
-    'Moje uši to nezachytily. Zopakuješ to?',
+    'Cože?',
+    'Promiň?',
+    'Ještě jednou?',
+    'Hm? Uteklo mi to.',
+    'Nerozuměla jsem.',
   ],
 };
 
@@ -89,7 +91,7 @@ export const ROBOT: Hlasky = {
   reakce: {
     ano: ['Ukládám. Ano.', 'Zaznamenáno.', 'Píp. Rozumím.', 'Výborně.', 'Potvrzeno.', 'Píp píp, data přijata.', 'Kladná odpověď uložena.'],
     ne: ['Zaznamenáno. Ne.', 'Rozumím.', 'Píp. Dobře.', 'Vyřazuji možnosti.', 'Negativní. Pokračuji.', 'Bzzz. Škrtám.'],
-    nevim: ['Nevadí. Přeskakuji.', 'V pořádku.', 'Neznámá hodnota. Nevadí.', 'Ani roboti nevědí všechno.'],
+    nevim: ['Přeskakuji.', 'V pořádku.', 'Neznámá hodnota.', 'Nevadí.'],
     mozna: ['Zpracovávám… Zajímavé.', 'Hmm. Rozumím.', 'Ukládám jako možná.', 'Padesát procent. Píp.'],
   },
   prekvapeni: ['Píp?! To moje data nečekala!', 'Chyba… ne, počkat. Zajímavé!', 'Bzzz! Překvapení v obvodech!', 'Tuto odpověď jsem nepředpověděl. Fascinující.'],
@@ -112,9 +114,10 @@ export const ROBOT: Hlasky = {
     'Píííp… Baterka myšlenek je vybitá. Vzdávám se. Co to bylo?',
   ],
   nerozumim: [
-    'Nerozpoznal jsem odpověď. Můžeš to prosím zopakovat?',
-    'Signál nečitelný. Zopakuj to, prosím.',
-    'Píp? Moje mikrofony to nezachytily. Ještě jednou?',
+    'Píp? Znovu.',
+    'Nerozpoznáno.',
+    'Signál nečitelný.',
+    'Opakuj, prosím.',
   ],
 };
 
@@ -128,7 +131,7 @@ export const SOVA: Hlasky = {
   reakce: {
     ano: ['Ahaaa, hú hú.', 'Zajímavé.', 'Přesně jak jsem myslela.', 'Aha!', 'Inu, dobře.', 'Výborně, to si zapíšu.', 'Mhm, to sedí.'],
     ne: ['Hmm, dobře.', 'Tak to ne, rozumím.', 'Aha.', 'Inu, to vylučuje pár zvířat.', 'Dobrá, škrtám.', 'Hú, tak jinak.'],
-    nevim: ['To nevadí.', 'I sova občas neví.', 'Nic se neděje, zeptám se jinak.', 'Nevědět je v pořádku.'],
+    nevim: ['Nevadí.', 'To nic.', 'I sova občas neví.', 'Dobře.'],
     mozna: ['Hmm, to je zajímavé.', 'Aha, možná…', 'Inu, někdy ano, někdy ne.', 'Napůl, rozumím.'],
   },
   prekvapeni: ['Hú! Tak to mě vyvedlo z míry!', 'Ale ne! To bych nečekala.', 'No podívejme! Tohle v knížkách nebylo.', 'Hú hú, opravdu? Pozoruhodné!'],
@@ -151,9 +154,10 @@ export const SOVA: Hlasky = {
     'Tentokrát moudrost nestačila. Vzdávám se. Co to bylo za zvíře?',
   ],
   nerozumim: [
-    'Hú? Nerozuměla jsem. Můžeš to prosím zopakovat?',
-    'Promiň, tohle mi uniklo. Ještě jednou?',
-    'Hmm? Zopakuj to prosím pomaleji.',
+    'Hú?',
+    'Prosím?',
+    'Ještě jednou?',
+    'Uniklo mi to.',
   ],
 };
 
@@ -167,7 +171,7 @@ export const ZABAK: Hlasky = {
   reakce: {
     ano: ['Kvák, chápu!', 'Ahaaa!', 'Super!', 'Jasně!', 'Hop, to se hodí!', 'Kvák kvák, výborně!', 'To je ono!'],
     ne: ['Hmm, kvák.', 'Aha, tak ne.', 'Dobře.', 'Žbluňk, škrtám.', 'Tak tam neskočím.', 'Kvák, jasně.'],
-    nevim: ['Nevadí, kvák.', 'To nic.', 'Klídek, zeptám se jinak.', 'Ani princ neví všechno.'],
+    nevim: ['Nevadí, kvák.', 'To nic.', 'Klídek.', 'Dobře.'],
     mozna: ['Hmm, možná…', 'Kvák, zajímavé.', 'Napůl? Dobře.', 'Hmm, tak trochu, jo?'],
   },
   prekvapeni: ['Kvák?! To jsem nečekal!', 'Žbluňk! Málem jsem spadl z leknínu!', 'Cože? Korunka mi málem spadla!', 'Ty jo, kvák! Překvapení!'],
@@ -190,8 +194,9 @@ export const ZABAK: Hlasky = {
     'Žbluňk… tohle neznám ani z rybníka. Vzdávám se. Co to bylo?',
   ],
   nerozumim: [
-    'Kvák? Nerozuměl jsem. Můžeš to prosím zopakovat?',
-    'Hm? Měl jsem vodu v uších. Ještě jednou?',
-    'Kvák? Řekni to ještě jednou, prosím.',
+    'Kvák?',
+    'Cože?',
+    'Ještě jednou?',
+    'Voda v uších. Znovu?',
   ],
 };

@@ -6,6 +6,8 @@
 
 /** Odpověď musí mít aspoň takový podíl hlasitosti hráče (0,4 ≈ o 8 dB tišší). */
 export const PRAH = 0.4;
+/** Mírnější práh pro jasnou krátkou odpověď ("ne", "jo"): krátké slovo má menší špičku než "hra". */
+export const PRAH_KRATKA = 0.2;
 
 let stream: MediaStream | null = null;
 let ctx: AudioContext | null = null;
@@ -81,7 +83,7 @@ export function kalibruj(hodnota: number) {
 }
 
 /** Je hlas dost hlasitý na to, aby to byl hráč? Bez měření nebo kalibrace bere všechno. */
-export function jeHrac(hodnota: number): boolean {
+export function jeHrac(hodnota: number, jasnaOdpoved = false): boolean {
   if (!ctx || reference === null) return true;
-  return hodnota >= reference * PRAH;
+  return hodnota >= reference * (jasnaOdpoved ? PRAH_KRATKA : PRAH);
 }
