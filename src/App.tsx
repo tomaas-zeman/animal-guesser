@@ -3,7 +3,9 @@ import db from './data/zvirata.json';
 import { Hra, type Databaze, type Odpoved, type Tah } from './game/engine';
 import { POSTAVICKY } from './postavicky';
 import { VYRAZY, type Nalada } from './postavicky/emoce';
+import { DOPLNKY } from './postavicky/hlasky';
 import { Projev, type Replika } from './postavicky/projev';
+import { maNahravky } from './hlasy/prehravac';
 import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
 import { jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import {
@@ -75,8 +77,9 @@ export default function App() {
   nastaveniRef.current = { mikrofon, ztlumeno };
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (!mluveniDostupne) return;
+    const t = setTimeout(async () => {
+      // s namluvenými hlasy na syntéze nezáleží
+      if (!mluveniDostupne || (await maNahravky())) return;
       const hlas = ceskyHlas();
       if (!hlas) setUpozorneni('Prohlížeč nemá český hlas, postavička může mluvit s přízvukem. Nejlíp mluví v prohlížeči Edge.');
       else if (!maHlas('muz')) setUpozorneni('Prohlížeč nemá český mužský hlas, Robík, Kvak a Bohouš proto mluví upraveným ženským hlasem. Mužský hlas má třeba Microsoft Edge.');
@@ -102,7 +105,7 @@ export default function App() {
     if (typeof co !== 'string') setNalada(co.nalada);
     setBublina(text);
     setMluvi(true);
-    await rekni(text, postavicka.hlas, nastaveniRef.current.ztlumeno, ladeni);
+    await rekni(text, postavicka.hlas, nastaveniRef.current.ztlumeno, ladeni, postavicka.id);
     if (gen !== generace.current) return false;
     setMluvi(false);
     return true;
@@ -223,7 +226,7 @@ export default function App() {
         setZduraznit(true);
         await pockej(premysleni());
         // napoví až po několika nezdarech, a krátce, ať to nezdržuje
-        const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ' Řekni ano, nebo ne.' : ' Řekni ano, ne, nebo nevím.';
+        const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ` ${DOPLNKY.napovedaTip}` : ` ${DOPLNKY.napovedaOtazka}`;
         const r = dejProjev().nerozumim();
         await mluv({ ...r, text: r.text + napoveda }, gen);
         return false;
@@ -286,7 +289,7 @@ export default function App() {
         await pockej(PAUZA_MEZI);
         if (!(await mluv(p.vyhra(h.pocetOtazek), gen))) return;
         await pockej(PAUZA_MEZI);
-        const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ' Řekni: hra!' : '';
+        const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ` ${DOPLNKY.vyzvaZnovu}` : '';
         const r = p.znovu();
         if (await mluv({ ...r, text: r.text + vyzva }, gen)) cekejNaStartRef.current(gen);
       } else {
@@ -324,7 +327,7 @@ export default function App() {
     projev.current = new Projev(postavicka.hlasky);
     setFaze('uvod');
     setTimeout(() => gen === generace.current && setNalada('klid'), 1200);
-    const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ' Až ho budeš mít, řekni: hra!' : '';
+    const vyzva = nastaveniRef.current.mikrofon && poslechDostupny ? ` ${DOPLNKY.vyzvaUvod}` : '';
     const r = projev.current.uvod();
     if (await mluv({ ...r, text: r.text + vyzva }, gen)) cekejNaStart(gen);
   };

@@ -1,0 +1,34 @@
+{
+  "_poznamka": "Hlasy pro neuronové TTS (scripts/tts.ts). Klíče API sem nepatří, berou se z proměnných prostředí.",
+  "edge": {
+    "_poznamka": "Zdarma přes edge-tts. Výška v Hz, tempo v procentech.",
+    "liska": { "hlas": "cs-CZ-VlastaNeural", "vyska": "+15Hz", "tempo": "+0%" },
+    "robot": { "hlas": "cs-CZ-AntoninNeural", "vyska": "-15Hz", "tempo": "-8%" },
+    "sova": { "hlas": "cs-CZ-VlastaNeural", "vyska": "-10Hz", "tempo": "-10%" },
+    "zabak": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+8Hz", "tempo": "+2%" },
+    "banan": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+3Hz", "tempo": "+8%" }
+  },
+  "azure": {
+    "liska": { "hlas": "cs-CZ-VlastaNeural", "vyska": "+8%", "tempo": "+0%" },
+    "robot": { "hlas": "cs-CZ-AntoninNeural", "vyska": "-12%", "tempo": "-8%" },
+    "sova": { "hlas": "cs-CZ-VlastaNeural", "vyska": "-6%", "tempo": "-10%" },
+    "zabak": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+6%", "tempo": "+2%" },
+    "banan": { "hlas": "cs-CZ-AntoninNeural", "vyska": "+2%", "tempo": "+8%" }
+  },
+  "google": {
+    "liska": { "hlas": "cs-CZ-Chirp3-HD-Aoede" },
+    "robot": { "hlas": "cs-CZ-Chirp3-HD-Charon", "tempo": 0.92 },
+    "sova": { "hlas": "cs-CZ-Chirp3-HD-Kore", "tempo": 0.92 },
+    "zabak": { "hlas": "cs-CZ-Chirp3-HD-Puck" },
+    "banan": { "hlas": "cs-CZ-Chirp3-HD-Fenrir", "tempo": 1.06 }
+  },
+  "elevenlabs": {
+    "_poznamka": "Doplň voice_id hlasů z knihovny ElevenLabs (https://elevenlabs.io/app/voice-library).",
+    "model": "eleven_multilingual_v2",
+    "liska": { "hlas": "" },
+    "robot": { "hlas": "" },
+    "sova": { "hlas": "" },
+    "zabak": { "hlas": "" },
+    "banan": { "hlas": "" }
+  }
+}

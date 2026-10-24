@@ -1,0 +1,65 @@
+name: Namluvit hlasy
+
+# Namluví chybějící věty postaviček neuronovými hlasy Microsoft Edge (zdarma, bez klíče)
+# a nahrávky commitne do větve, na které běží. Spouští se ručně (Actions → Namluvit hlasy → Run workflow)
+# a samo, když se v master změní hlášky, otázky nebo nastavení hlasů.
+on:
+  workflow_dispatch:
+    inputs:
+      postava:
+        description: 'Jen jedna postavička (liska, robot, sova, zabak, banan), prázdné = všechny'
+        required: false
+        default: ''
+      prepsat:
+        description: 'Namluvit znovu i to, co už nahrané je (např. po změně hlasu)'
+        type: boolean
+        default: false
+  push:
+    branches: [master, claude/project-thread-gvdlij]
+    paths:
+      - src/postavicky/hlasky.ts
+      - src/data/zvirata.json
+      - scripts/hlasy-tts.json
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: hlasy-${{ github.ref }}
+
+jobs:
+  namluvit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: pip install edge-tts
+      - name: Namluvit
+        env:
+          POSTAVA: ${{ inputs.postava }}
+          PREPSAT: ${{ inputs.prepsat }}
+        run: npm run hlasy:tts -- edge ${POSTAVA:+--postava "$POSTAVA"} $([ "$PREPSAT" = "true" ] && echo --prepsat)
+      - name: Commit nahrávek
+        id: commit
+        run: |
+          git add public/hlasy
+          if git diff --cached --quiet; then echo "Nic nového."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Namluvené hlasy postaviček (edge-tts)"
+          git push
+          echo "zmena=1" >> "$GITHUB_OUTPUT"
+      # push z workflow nespouští další workflow, nasazení proto spustíme ručně
+      - name: Nasadit
+        if: steps.commit.outputs.zmena == '1' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref master
