@@ -150,6 +150,11 @@ export class Projev {
     return this.vyber(this.hlasky.vzdavam, 'smutek');
   }
 
+  /** Hráč jí nadává: nenechá se vyvést z míry a vtipně to otočí. */
+  urazka(): Replika {
+    return this.vyber(this.hlasky.urazka, 'prekvapeni');
+  }
+
   nerozumim(): Replika {
     return this.vyber(this.hlasky.nerozumim, 'zvedavost');
   }
