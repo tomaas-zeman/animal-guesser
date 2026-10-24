@@ -1,0 +1,278 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  color: #2b2b3a;
+  background: #ffe2c2;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+.aplikace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.6s;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 4vw, 1.8rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.ovladani {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.maly {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.maly.zapnuto {
+  background: #fff;
+  box-shadow: 0 0 0 2px #2b2b3a inset;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+.scena {
+  flex: 1;
+  min-height: 240px;
+  position: relative;
+}
+
+.sipka {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 1.4rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.sipka.vlevo {
+  left: 16px;
+}
+
+.sipka.vpravo {
+  right: 16px;
+}
+
+.panel {
+  padding: 12px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.popis {
+  margin: 0;
+  max-width: 34rem;
+}
+
+.tecky {
+  display: flex;
+  gap: 8px;
+}
+
+.tecky button {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0;
+}
+
+.tecky button.aktivni {
+  background: #2b2b3a;
+}
+
+.velky {
+  background: #2b2b3a;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  padding: 14px 28px;
+  border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.bublina {
+  position: relative;
+  background: #fff;
+  border-radius: 22px;
+  padding: 14px 22px;
+  font-size: clamp(1.15rem, 3.5vw, 1.6rem);
+  font-weight: 800;
+  max-width: 40rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bublina::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  margin-left: -10px;
+  border: 10px solid transparent;
+  border-top: 0;
+  border-bottom-color: #fff;
+}
+
+.bublina.mluvi {
+  animation: pulz 0.9s ease-in-out infinite;
+}
+
+.bublina .emoji {
+  font-size: 2.2rem;
+}
+
+@keyframes pulz {
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.odpovedi {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 40rem;
+}
+
+.odpoved {
+  padding: 16px 8px;
+  border-radius: 18px;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: #fff;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+  transition: transform 0.1s;
+}
+
+.odpoved:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+}
+
+.odpoved.ano {
+  background: #3fae5a;
+}
+
+.odpoved.ne {
+  background: #e0524f;
+}
+
+.odpoved.nevim {
+  background: #8a8fa3;
+}
+
+.odpoved.mozna {
+  background: #e9a23b;
+}
+
+.stav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.95rem;
+  min-height: 1.6em;
+}
+
+.posloucham {
+  color: #d22f2f;
+  font-weight: 800;
+  animation: pulz 1s infinite;
+}
+
+.odkaz {
+  background: none;
+  text-decoration: underline;
+  font-weight: 700;
+  padding: 0;
+}
+
+.slyseno {
+  opacity: 0.75;
+}
+
+.pocitadlo {
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.upozorneni {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.ladeni {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+@media (max-width: 520px) {
+  .odpovedi {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
