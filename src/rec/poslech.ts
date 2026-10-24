@@ -53,6 +53,8 @@ export interface Slyseni {
   trvani: number;
   /** poslech ukončila jasná průběžná odpověď, nečekalo se na finální výsledek */
   zkraceno?: boolean;
+  /** rozpoznávání vůbec nedostalo zvuk z mikrofonu (nepřišla událost audiostart) */
+  bezZvuku?: boolean;
   /** co se během poslechu dělo, s časem v ms od startu (pro ladění) */
   udalosti?: string[];
 }
@@ -100,9 +102,11 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
   };
   const zalozniStart = setTimeout(ohlasStart, 1000);
   const udalosti: string[] = [];
+  let zvuk = false;
   const zapis = (co: string) => udalosti.push(`${co}@${Date.now() - zacatek}`);
   r.onaudiostart = () => {
     zapis('audio');
+    zvuk = true;
     ohlasStart();
   };
   r.onsoundstart = () => zapis('zvuk');
@@ -161,7 +165,7 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
       zapis('konec');
       const texty = vyberTexty(prepisy, drivePrubezne);
       const proc = texty.length ? undefined : kratkyHlas ? KRATKY_HLAS : chyba;
-      resolve({ texty, prepisy, chyba: proc, trvani: Date.now() - zacatek, zkraceno, udalosti });
+      resolve({ texty, prepisy, chyba: proc, trvani: Date.now() - zacatek, zkraceno, bezZvuku: !zvuk, udalosti });
     };
   });
 
