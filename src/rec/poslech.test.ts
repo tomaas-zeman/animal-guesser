@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PORUCH, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
+import { MAX_PORUCH, vyberTexty, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
 
 describe('rozpoznání odpovědi z řeči', () => {
   const pripady: [string, ReturnType<typeof rozpoznejOdpoved>][] = [
@@ -33,6 +33,17 @@ describe('rozpoznání odpovědi z řeči', () => {
     ['nikoliv', 'ne'],
     ['N', 'ne'],
     ['mně', 'ne'],
+    ['nelétá', 'ne'],
+    ['nejsou', 'ne'],
+    ['ne, není', 'ne'],
+    ['nemá křídla', 'ne'],
+    ['nežije v lese', 'ne'],
+    ['je', 'ano'],
+    ['je to tak', 'ano'],
+    ['ano je', 'ano'],
+    ['někdy', 'mozna'],
+    ['nejspíš', 'mozna'],
+    ['nevím', 'nevim'],
     ['neh', 'ne'],
     ['mně ano', 'ano'],
     ['no jo', 'ano'],
@@ -44,6 +55,16 @@ describe('rozpoznání odpovědi z řeči', () => {
 
   it('zkusí i další varianty přepisu', () => {
     expect(rozpoznejOdpoved(['banán', 'ano'])).toBe('ano');
+  });
+  it('jasné "ne" v kterékoli variantě přebije slabé "je" v první', () => {
+    expect(rozpoznejOdpoved(['je', 'ne', 'né'])).toBe('ne');
+    expect(rozpoznejOdpoved(['mně', 'je'])).toBe('ne');
+    expect(rozpoznejOdpoved(['banán', 'je'])).toBe('ano');
+  });
+  it('najde odpověď na konci přepisu, kde je i konec otázky', () => {
+    expect(rozpoznejOdpoved(['je to noční zvíře ne'])).toBe('ne');
+    expect(rozpoznejOdpoved(['umí to zvíře létat ano'])).toBe('ano');
+    expect(rozpoznejOdpoved(['dneska jsme byli venku na procházce v parku s pejskem a ne'])).toBe(null);
   });
 });
 
@@ -89,5 +110,18 @@ describe('výpadky poslechu', () => {
   it('pauza po výpadcích roste, ale má strop', () => {
     expect(pauzaPoPoruse(1)).toBeLessThan(pauzaPoPoruse(3));
     expect(pauzaPoPoruse(MAX_PORUCH)).toBe(5000);
+  });
+});
+
+describe('výběr přepisů', () => {
+  it('bere finální, a průběžné jako zálohu', () => {
+    expect(vyberTexty([{ text: 'ne', jistota: 0, final: false }])).toEqual(['ne']);
+    expect(
+      vyberTexty([
+        { text: 'mne', jistota: 0.4, final: true },
+        { text: 'ne', jistota: 0, final: false },
+      ]),
+    ).toEqual(['mne', 'ne']);
+    expect(vyberTexty([{ text: ' ', jistota: 0, final: true }])).toEqual([]);
   });
 });

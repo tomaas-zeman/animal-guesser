@@ -55,6 +55,12 @@ export default function App() {
   const [mikrofon, setMikrofon] = useState(poslechDostupny);
   const [posloucha, setPosloucha] = useState(false);
   const [slyseno, setSlyseno] = useState('');
+  /** mikrofon už opravdu poslouchá (rozběh trvá chvíli) */
+  const [pripraveno, setPripraveno] = useState(false);
+  /** po nerozpoznané odpovědi se tlačítka zvýrazní jako okamžitá záloha */
+  const [zduraznit, setZduraznit] = useState(false);
+  /** co rozpoznávání vrátilo (jen v ?debug) */
+  const [zaznamy, setZaznamy] = useState<string[]>([]);
   const [upozorneni, setUpozorneni] = useState('');
   const [ztlumeno, setZtlumeno] = useState(false);
 
@@ -111,6 +117,13 @@ export default function App() {
    * Poslouchá pořád dokola, dokud `zpracuj` nevrátí true. Mlčení a výpadky
    * rozpoznávání (síť, okamžitý konec) přečká a poslech znovu spustí.
    */
+  const zaznamenej = (s: Slyseni, hlasitost: number) => {
+    const prepisy = (s.prepisy ?? []).map((p) => `${p.final ? '' : '~'}„${p.text}“ ${p.jistota ? p.jistota.toFixed(2) : ''}`).join(' | ');
+    const radek = `${(s.trvani / 1000).toFixed(1)}s ${s.chyba ?? ''}${s.zkraceno ? ' zkráceno' : ''} hl. ${hlasitost.toFixed(3)} → ${rozpoznejOdpoved(s.texty) ?? '?'}: ${prepisy || '—'}`;
+    console.debug('[poslech]', radek, s);
+    setZaznamy((z) => [radek, ...z].slice(0, 8));
+  };
+
   const poslouchejPorad = useCallback(
     async (gen: number, zpracuj: (texty: string[], hlasitost: number) => Promise<boolean>) => {
       let poruch = 0;
@@ -118,8 +131,9 @@ export default function App() {
       try {
         while (gen === generace.current && nastaveniRef.current.mikrofon && poslechDostupny) {
           setPosloucha(true);
+          setPripraveno(false);
           zacniUsek();
-          const p = poslouchej();
+          const p = poslouchej(() => gen === generace.current && setPripraveno(true));
           zrusPoslech.current = p.zrus;
           let s: Slyseni;
           try {
@@ -136,6 +150,7 @@ export default function App() {
             return;
           }
           if (gen !== generace.current || !nastaveniRef.current.mikrofon) return;
+          if (ladeni && (s.prepisy?.length || s.chyba)) zaznamenej(s, spickaUseku());
 
           // něco zaznělo, ale bez slov: když to byl hlas hráče, ať to zopakuje
           const hlasitost = spickaUseku();
@@ -187,7 +202,7 @@ export default function App() {
             setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
             return false;
           }
-          if (jeHovorOkolo(texty)) {
+          if (!odpoved && jeHovorOkolo(texty)) {
             setSlyseno(`${texty[0]} (to nebyla odpověď)`);
             return false;
           }
@@ -200,10 +215,12 @@ export default function App() {
         } else setSlyseno('…');
         if (odpoved && (!jenAnoNe || odpoved === 'ano' || odpoved === 'ne')) {
           kalibruj(hlasitost);
+          setZduraznit(false);
           odpovezRef.current(odpoved);
           return true;
         }
         nerozumi++;
+        setZduraznit(true);
         await pockej(premysleni());
         // napoví až po několika nezdarech, a krátce, ať to nezdržuje
         const napoveda = nerozumi % 3 !== 0 ? '' : jenAnoNe ? ' Řekni ano, nebo ne.' : ' Řekni ano, ne, nebo nevím.';
@@ -251,6 +268,7 @@ export default function App() {
     const h = hra.current;
     if (!h || !tah || faze !== 'hra') return;
     const gen = prerus();
+    setZduraznit(false);
     // tlačítka zmizí, dokud postavička nepoloží další otázku
     setTah(null);
     const p = dejProjev();
@@ -455,7 +473,7 @@ export default function App() {
 
               {faze === 'hra' && tah && (
                 <>
-                  <div className="odpovedi">
+                  <div className={`odpovedi ${zduraznit ? 'zduraznit' : ''}`}>
                     {(naTip ? TLACITKA.slice(0, 2) : TLACITKA).map((t) => (
                       <button key={t.odpoved} className={`odpoved ${t.trida}`} onClick={() => odpovez(t.odpoved)}>
                         {t.text}
@@ -464,7 +482,7 @@ export default function App() {
                   </div>
                   <div className="stav">
                     {posloucha ? (
-                      <span className="posloucham">● Poslouchám…</span>
+                      <span className={`posloucham ${pripraveno ? '' : 'rozbiha'}`}>{pripraveno ? '● Poslouchám, mluv' : '○ Chystám mikrofon…'}</span>
                     ) : mikrofon && !mluvi ? (
                       <button className="odkaz" onClick={poslouchejZnovu}>
                         🎤 Řekni odpověď
@@ -499,6 +517,11 @@ export default function App() {
                   {databaze.zvirata[x.index].emoji} {databaze.zvirata[x.index].jmeno}: {(x.pst * 100).toFixed(1)} %
                 </div>
               ))}
+            {zaznamy.map((z, i) => (
+              <div key={i} className="zaznam">
+                {z}
+              </div>
+            ))}
             <div>
               hlasitost hráče: {referencniHlasitost()?.toFixed(3) ?? '–'}, poslední: {spickaUseku().toFixed(3)}
             </div>
