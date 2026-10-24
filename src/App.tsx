@@ -195,7 +195,7 @@ export default function App() {
       setSlyseno('');
       let nerozumi = 0;
       await poslouchejPorad(gen, async (texty, hlasitost) => {
-        const odpoved = rozpoznejOdpoved(texty);
+        const odpoved = rozpoznejOdpoved(texty, posledniOtazka.current);
         if (texty.length > 0) {
           // hovor okolo se tiše přeslechne a poslouchá se dál
           if (!jeHrac(hlasitost, odpoved !== null)) {

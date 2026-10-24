@@ -169,7 +169,7 @@ const VZORY: [Odpoved, RegExp][] = [
   // a hráč často odpoví zápornou větou: "nelétá", "nejsou", "nemá křídla"
   [
     'ne',
-    /\b(spis ne|asi ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|nikdy|vubec|kdepak|nikoliv|nope|nein|ne(?!(kdy|kde|kdo|co|jak|jsp|jvi|jl|jen|bo|vim|vi\b|tusim|rozum|slys|boj|chap))[a-z]{2,})\b/,
+    /\b(spis ne|asi ne|nejspis ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|nikdy|vubec|kdepak|nikoliv|nope|nein|nie|ne(?!(kdy|kde|kdo|co|jak|kter|kol|jsp|jvi|jl|jen|bo|vim|vi\b|tusim|rozum|slys|boj|chap))[a-z]{2,})\b/,
   ],
   ['mozna', /\b(mozna|muze byt|muze|nekdy|asi|nejspis|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
   ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|jop|jojo|ok|okej|spravne)\b/],
@@ -221,10 +221,31 @@ export function jeStart(texty: string[]): boolean {
 /** Jak dlouhou větu ještě prohledá, jestli nekončí odpovědí ("…je to noční zvíře? ne"). */
 const MAX_SLOV_S_ODPOVEDI_NA_KONCI = 8;
 
-function rozeber(t: string): { odpoved: Odpoved; silna: boolean } | null {
+/** Je slovo z odpovědi totéž slovo jako v otázce? Stačí stejný začátek: "létá" ~ "létat", "plave" ~ "plavat". */
+function stejneSlovo(a: string, b: string): boolean {
+  const n = Math.min(4, a.length, b.length);
+  return a.slice(0, n) === b.slice(0, n) && Math.abs(a.length - b.length) <= 2;
+}
+
+/**
+ * Odpověď slovem z otázky: "Umí létat?" "Létá." Vrací null, když to není jedno slovo z otázky.
+ * Krátká slova ("je", "má") sem nepatří: rozpoznávání si je plete s "ne", řeší je SLABE.
+ */
+function ozvena(t: string, otazka: string): Odpoved | null {
+  if (slov(t) !== 1 || t.length < 3 || t.startsWith('ne')) return null;
+  // slova se záporem ("není hmyz") a "nebo" nejsou ozvěna kladné odpovědi
+  const slova = normalizuj(otazka).split(' ').filter((s) => s.length >= 3 && !s.startsWith('ne'));
+  return slova.some((s) => stejneSlovo(t, s)) ? 'ano' : null;
+}
+
+function rozeber(t: string, otazka: string): { odpoved: Odpoved; silna: boolean } | null {
   if (!t) return null;
   const n = slov(t);
   if (n <= MAX_SLOV) {
+    // zápor a "nevím" mají přednost: "neumí" je ne, i když "umí" je v otázce
+    for (const [odpoved, vzor] of VZORY) if (odpoved !== 'ano' && odpoved !== 'mozna' && vzor.test(t)) return { odpoved, silna: true };
+    const o = ozvena(t, otazka);
+    if (o) return { odpoved: o, silna: true };
     for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return { odpoved, silna: true };
     for (const [odpoved, vzor] of SLABE) if (vzor.test(t)) return { odpoved, silna: false };
     return null;
@@ -237,14 +258,15 @@ function rozeber(t: string): { odpoved: Odpoved; silna: boolean } | null {
 }
 
 /**
- * Převede, co hráč řekl, na odpověď. Vrací null, když nerozumí.
+ * Převede, co hráč řekl, na odpověď. `otazka` pomůže pochopit odpověď slovem z otázky.
+ * Vrací null, když nerozumí.
  * Projde všechny varianty přepisu: jasná odpověď v kterékoli z nich má přednost
  * před slabou ("je") v té nejpravděpodobnější.
  */
-export function rozpoznejOdpoved(texty: string[]): Odpoved | null {
+export function rozpoznejOdpoved(texty: string[], otazka = ''): Odpoved | null {
   let slaba: Odpoved | null = null;
   for (const text of texty) {
-    const r = rozeber(normalizuj(text));
+    const r = rozeber(normalizuj(text), otazka);
     if (!r) continue;
     if (r.silna) return r.odpoved;
     slaba ??= r.odpoved;
