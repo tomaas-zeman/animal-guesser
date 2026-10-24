@@ -54,6 +54,8 @@ export function poslouchej(): Poslech {
     };
     r.onerror = (e) => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') reject(new Error('mikrofon-zakazan'));
+      // některé telefony nedovolí poslouchat a zároveň měřit hlasitost
+      if (e.error === 'audio-capture') reject(new Error('mikrofon-obsazen'));
     };
     r.onend = () => resolve(texty);
   });
@@ -84,11 +86,44 @@ const VZORY: [Odpoved, RegExp][] = [
   ['ano', /\b(ano|jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
 ];
 
+/** Odpověď má pár slov; delší věta je nejspíš hovor okolo, ne odpověď hráče. */
+export const MAX_SLOV = 4;
+
+function slov(t: string) {
+  return t ? t.split(' ').length : 0;
+}
+
+/** Jsou všechny přepisy dlouhé věty? Takové se tiše ignorují. */
+export function jeHovorOkolo(texty: string[]): boolean {
+  return texty.length > 0 && texty.every((text) => slov(normalizuj(text)) > MAX_SLOV);
+}
+
+const ZOPAKUJ =
+  /\b(zopakuj|zopakujes|zopakovat|opakuj|znovu|jeste jednou|coze|co prosim|cos rikal[a]?|co jsi rikal[a]?|nerozumel jsem|nerozumela jsem|neslysel jsem|neslysela jsem|prosim)\b|^co$/;
+
+/** Chce hráč otázku zopakovat? ("zopakuj to", "cože", "co prosím"…) */
+export function jeZopakuj(texty: string[]): boolean {
+  return texty.some((text) => {
+    const t = normalizuj(text);
+    return slov(t) <= MAX_SLOV + 1 && ZOPAKUJ.test(t);
+  });
+}
+
+const START = /\b(hra|hru|hrat|hrajem|hrajeme|hraju|zacni|zacneme|zaciname|jdeme|start|mam ho|mam)\b/;
+
+/** Řekl hráč startovací slovo ("hra")? */
+export function jeStart(texty: string[]): boolean {
+  return texty.some((text) => {
+    const t = normalizuj(text);
+    return slov(t) <= MAX_SLOV && START.test(t);
+  });
+}
+
 /** Převede, co hráč řekl, na odpověď. Vrací null, když nerozumí. */
 export function rozpoznejOdpoved(texty: string[]): Odpoved | null {
   for (const text of texty) {
     const t = normalizuj(text);
-    if (!t) continue;
+    if (!t || slov(t) > MAX_SLOV) continue;
     for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return odpoved;
   }
   return null;
