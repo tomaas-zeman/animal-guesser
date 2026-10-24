@@ -39,7 +39,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Mazaná liška, která zná každé zvíře z lesa.',
     barva: '#e8762b',
     pozadi: ['#ffe2c2', '#ffb27a'],
-    hlas: { pitch: 1.15, rate: 1.02, pohlavi: 'zena' },
+    hlas: { pitch: 1.15, rate: 0.97, pohlavi: 'zena' },
     Komponenta: Liska,
     hlasky: {
       uvod: 'Ahoj, já jsem liška Lili! Mysli si nějaké zvíře a já ho uhodnu.',
@@ -64,7 +64,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Chytrý robot s velkou databází v hlavě.',
     barva: '#4f8fd9',
     pozadi: ['#d9ecff', '#8fb8ec'],
-    hlas: { pitch: 0.8, rate: 0.98, pohlavi: 'muz' },
+    hlas: { pitch: 0.8, rate: 0.94, pohlavi: 'muz' },
     Komponenta: Robot,
     hlasky: {
       uvod: 'Píp píp. Jsem robot Robík. Mysli si zvíře. Moje obvody ho uhodnou.',
@@ -89,7 +89,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Moudrá sova v brýlích. Přečetla všechny knížky o zvířatech.',
     barva: '#8a5a3c',
     pozadi: ['#e8dcff', '#a99ad6'],
-    hlas: { pitch: 1.05, rate: 0.95, pohlavi: 'zena' },
+    hlas: { pitch: 1.05, rate: 0.92, pohlavi: 'zena' },
     Komponenta: Sova,
     hlasky: {
       uvod: 'Hú hú, já jsem sova Soňa. Mysli si zvíře a já ho svou moudrostí uhodnu.',
@@ -114,7 +114,7 @@ export const POSTAVICKY: Postavicka[] = [
     popis: 'Žabí princ s korunkou. Rád skáče a ještě radši hádá.',
     barva: '#5cb85c',
     pozadi: ['#dcf7d0', '#8fd18a'],
-    hlas: { pitch: 0.92, rate: 1.05, pohlavi: 'muz' },
+    hlas: { pitch: 0.92, rate: 1.0, pohlavi: 'muz' },
     Komponenta: Zabak,
     hlasky: {
       uvod: 'Kvák! Já jsem žabák Kvak, princ z rybníka. Mysli si zvíře a já ho uhodnu.',
