@@ -24,7 +24,6 @@ on:
       - src/postavicky/hlasky.ts
       - src/data/zvirata.json
       - scripts/hlasy-tts.json
-      - scripts/tts.ts
 
 permissions:
   contents: write
