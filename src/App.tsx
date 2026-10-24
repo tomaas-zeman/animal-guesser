@@ -3,7 +3,7 @@ import db from './data/zvirata.json';
 import { Hra, type Databaze, type Odpoved, type Tah } from './game/engine';
 import { POSTAVICKY, nahodne } from './postavicky';
 import type { Nalada } from './postavicky/spolecne';
-import { ceskyHlas, jePrirozeny, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
+import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from './rec/mluveni';
 import { jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import { jeHovorOkolo, jeStart, jeZopakuj, poslechDostupny, poslouchej, rozpoznejOdpoved } from './rec/poslech';
 import { Scena } from './Scena';
@@ -56,6 +56,7 @@ export default function App() {
       if (!mluveniDostupne) return;
       const hlas = ceskyHlas();
       if (!hlas) setUpozorneni('Prohlížeč nemá český hlas, postavička může mluvit s přízvukem. Nejlíp mluví v prohlížeči Edge.');
+      else if (!maHlas('muz')) setUpozorneni('Prohlížeč nemá český mužský hlas, Robík a Kvak proto mluví upraveným ženským hlasem. Mužský hlas má třeba Microsoft Edge.');
       else if (!jePrirozeny(hlas)) setUpozorneni('Tip: nejpřirozeněji postavičky mluví v prohlížeči Microsoft Edge.');
     }, 1500);
     return () => clearTimeout(t);
