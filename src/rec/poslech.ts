@@ -115,9 +115,11 @@ const VZORY: [Odpoved, RegExp][] = [
   // "ne" je krátké a rozpoznávání ho přepisuje všelijak: "Né.", "neee", "nene", "ne ne ne", "mně", "nein"…
   [
     'ne',
-    /\b(spis ne|asi ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|neni|nema|nemuze|nezije|neumi|nikdy|vubec|kdepak|nikoliv|nope|nein)\b|^(n+|mne)$/,
+    /\b(spis ne|asi ne|nejspis ne|myslim ze ne|ani nahodou|v zadnem pripade|n+e+h?|ne(ne)+|neni|nema|nemuze|nezije|neumi|nikdy|vubec|kdepak|nikoliv|nope|nein|nie)\b|^(n+|mne)$/,
   ],
-  ['mozna', /\b(mozna|muze byt|muze|nekdy|asi|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
+  // zápor slovesa z otázky: "nejí", "neleze", "nebzučí"… (ne "někdy", "nějak", "nejspíš", "několik", "nebo")
+  ['ne', /^(no |to |ale )?ne(?!kd|co|jak|jsp|kter|kol|vi|bo$)[a-z]{2,}( to)?$/],
+  ['mozna', /\b(nejspis|mozna|muze byt|muze|nekdy|asi|spis ano|spis jo|trochu|obcas|castecne|jak kdy|mozna ano)\b/],
   ['ano', /\b(ano|jo|no jo|nojo|jasne ze jo|joo+|jasne|jasnacka|urcite|presne|samozrejme|je|ma|umi|zije|jop|jojo|ok|okej|spravne)\b/],
 ];
 
@@ -154,11 +156,30 @@ export function jeStart(texty: string[]): boolean {
   });
 }
 
-/** Převede, co hráč řekl, na odpověď. Vrací null, když nerozumí. */
-export function rozpoznejOdpoved(texty: string[]): Odpoved | null {
+/** Je slovo z odpovědi totéž slovo jako v otázce? Stačí stejný začátek: "létá" ~ "létat", "plave" ~ "plavat". */
+function stejneSlovo(a: string, b: string): boolean {
+  if (a.length < 3 || b.length < 3) return a === b;
+  const n = Math.min(4, a.length, b.length);
+  return a.slice(0, n) === b.slice(0, n) && Math.abs(a.length - b.length) <= 2;
+}
+
+/** Odpověď slovem z otázky: "Umí létat?" "Létá." Vrací null, když to není jedno slovo z otázky. */
+function ozvena(t: string, otazka: string): Odpoved | null {
+  if (slov(t) !== 1 || t.startsWith('ne')) return null;
+  // slova se záporem ("není hmyz") a "nebo" nejsou ozvěna kladné odpovědi
+  const slova = normalizuj(otazka).split(' ').filter((s) => s.length >= 2 && !s.startsWith('ne'));
+  return slova.some((s) => stejneSlovo(t, s)) ? 'ano' : null;
+}
+
+/** Převede, co hráč řekl, na odpověď. `otazka` pomůže pochopit odpověď slovem z otázky. Vrací null, když nerozumí. */
+export function rozpoznejOdpoved(texty: string[], otazka = ''): Odpoved | null {
   for (const text of texty) {
     const t = normalizuj(text);
     if (!t || slov(t) > MAX_SLOV) continue;
+    // zápor a "nevím" mají přednost: "neumí" je ne, i když "umí" je v otázce
+    for (const [odpoved, vzor] of VZORY) if (odpoved !== 'ano' && odpoved !== 'mozna' && vzor.test(t)) return odpoved;
+    const o = ozvena(t, otazka);
+    if (o) return o;
     for (const [odpoved, vzor] of VZORY) if (vzor.test(t)) return odpoved;
   }
   return null;
