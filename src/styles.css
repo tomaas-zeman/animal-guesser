@@ -238,6 +238,30 @@ h2 {
   animation: pulz 1s infinite;
 }
 
+.posloucham.rozbiha {
+  color: inherit;
+  opacity: 0.6;
+  animation: none;
+}
+
+.odpovedi.zduraznit .odpoved {
+  animation: zduraznit 0.8s 3;
+}
+
+@keyframes zduraznit {
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.7);
+  }
+}
+
+.ladeni .zaznam {
+  max-width: 420px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  word-break: break-word;
+}
+
 .odkaz {
   background: none;
   text-decoration: underline;
