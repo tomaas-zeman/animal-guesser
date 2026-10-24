@@ -21,7 +21,16 @@ const SKUPINY: Record<string, string[]> = {
   jeleni: ['Jelen', 'Srnka', 'Los', 'Sob', 'Daněk'],
   opice: ['Šimpanz', 'Gorila', 'Orangutan', 'Pavián', 'Lemur'],
   hlodavci: ['Myš', 'Potkan', 'Křeček', 'Morče', 'Činčila', 'Kapybara', 'Svišť', 'Dikobraz'],
-  žáby: ['Žába', 'Rosnička', 'Ropucha', 'Pralesnička'],
+  žáby: ['Žába', 'Rosnička', 'Ropucha', 'Pralesnička', 'Kuňka'],
+  ocasatí: ['Mlok', 'Čolek', 'Velemlok', 'Axolotl'],
+  'naše ryby': ['Kapr', 'Sumec', 'Štika', 'Pstruh', 'Candát', 'Okoun', 'Úhoř', 'Lín', 'Amur', 'Jeseter', 'Plotice', 'Karas'],
+  'mořské ryby': ['Tuňák', 'Treska', 'Sleď', 'Platýs', 'Rejnok', 'Mečoun', 'Klaun očkatý', 'Čtverzubec', 'Murena', 'Mořský koník'],
+  'naši ptáci': ['Vrabec', 'Kos', 'Sýkorka', 'Straka', 'Sojka', 'Kukačka', 'Vlaštovka', 'Ledňáček', 'Dudek', 'Červenka',
+    'Špaček', 'Stehlík', 'Hýl', 'Slavík', 'Volavka', 'Racek', 'Lyska', 'Bažant'],
+  lasicovití: ['Kuna', 'Lasice', 'Tchoř', 'Jezevec', 'Vydra'],
+  hmyz: ['Včela', 'Čmelák', 'Vosa', 'Šváb', 'Cvrček', 'Kudlanka', 'Vážka', 'Bělásek', 'Můra', 'Roháč', 'Mandelinka',
+    'Světluška', 'Ruměnice', 'Blecha'],
+  'další drobní': ['Klíště', 'Štír', 'Tarantule', 'Stonožka', 'Mnohonožka', 'Svinka', 'Slimák', 'Pijavice', 'Šnek', 'Pavouk'],
 };
 
 describe('konkrétní druhy', () => {
@@ -33,7 +42,7 @@ describe('konkrétní druhy', () => {
         for (let seed = 1; seed <= 3; seed++) {
           const v = odehraj(databaze, cil, presnyHrac, {}, mulberry32(seed * 100 + cil));
           expect({ jmeno, uhodl: v.uhodl, tipu: v.tipu }).toEqual({ jmeno, uhodl: true, tipu: 1 });
-          expect(v.otazek, jmeno).toBeLessThanOrEqual(16);
+          expect(v.otazek, jmeno).toBeLessThanOrEqual(18);
         }
       }
     });

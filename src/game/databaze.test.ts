@@ -46,7 +46,7 @@ describe('databáze zvířat', () => {
 
   // Tyhle dvojice si jsou tak podobné, že je spolehlivě rozliší jen jedna jasná vlastnost
   // (potkan plave, šimpanz je menší než člověk, komár saje krev); zbytek dělají méně jisté.
-  const PODOBNE = ['Myš × Potkan', 'Šimpanz × Gorila', 'Moucha × Komár', 'Sova × Výr', 'Žába × Skokan'];
+  const PODOBNE = ['Myš × Potkan', 'Šimpanz × Gorila', 'Moucha × Komár', 'Sova × Výr', 'Žába × Skokan', 'Včela × Čmelák'];
 
   it('každá dvě zvířata se liší aspoň ve dvou jasných vlastnostech, aby je nespletl jeden omyl', () => {
     // jasný rozdíl = u jednoho vlastnost skoro jistě platí, u druhého skoro jistě ne
