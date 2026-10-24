@@ -8,17 +8,17 @@ import { ceskyHlas, jePrirozeny, maHlas, mluveniDostupne, rekni, zmlkni } from '
 import { hracDomluvil, jeHrac, kalibruj, meriSe, referencniHlasitost, spickaUseku, vypniMereni, zacniUsek, zapniMereni, zapomenHrace } from './rec/hlasitost';
 import {
   MAX_PORUCH,
+  bezNadavek,
   jeHovorOkolo,
   jeNesrozumitelne,
   jePorucha,
   jeStart,
-  jeUrazka,
-  bezUrazek,
   KRATKY_HLAS,
   jeZopakuj,
   pauzaPoPoruse,
   poslechDostupny,
   poslouchej,
+  rozpoznejNadavku,
   rozpoznejOdpoved,
   type Slyseni,
 } from './rec/poslech';
@@ -122,7 +122,7 @@ export default function App() {
    */
   const zaznamenej = (s: Slyseni, hlasitost: number) => {
     const prepisy = (s.prepisy ?? []).map((p) => `${p.final ? '' : '~'}„${p.text}“ ${p.jistota ? p.jistota.toFixed(2) : ''}`).join(' | ');
-    const radek = `${(s.trvani / 1000).toFixed(1)}s ${s.chyba ?? ''}${s.zkraceno ? ' zkráceno' : ''} hl. ${hlasitost.toFixed(3)} → ${rozpoznejOdpoved(s.texty) ?? '?'}: ${prepisy || '—'} [${(s.udalosti ?? []).join(' ')}]`;
+    const radek = `${(s.trvani / 1000).toFixed(1)}s ${s.chyba ?? ''}${s.zkraceno ? ' zkráceno' : ''} hl. ${hlasitost.toFixed(3)} → ${rozpoznejNadavku(s.texty) ? 'nadávka' : (rozpoznejOdpoved(bezNadavek(s.texty)) ?? '?')}: ${prepisy || '—'}${s.texty.length ? ` ⇒ ${s.texty.join(' | ')}` : ''} [${(s.udalosti ?? []).join(' ')}]`;
     console.debug('[poslech]', radek, s);
     setZaznamy((z) => [radek, ...z].slice(0, 8));
   };
@@ -199,19 +199,22 @@ export default function App() {
       let nerozumi = 0;
       let kratkych = 0;
       await poslouchejPorad(gen, async (texty, hlasitost, kratkyHlas) => {
-        // na nadávku vtipně zareaguje; když v tom byla i odpověď ("ne, ty hluchá"), platí
-        if (jeUrazka(texty)) {
-          setSlyseno(texty[0]);
-          await pockej(premysleni());
-          if (!(await mluv(dejProjev().urazka(), gen))) return true;
-          texty = bezUrazek(texty).filter((t) => t);
-          if (texty.length === 0) return false;
-        }
-        const odpoved = rozpoznejOdpoved(texty, posledniOtazka.current);
+        // nadávka se nepočítá jako odpověď: "nejsi chytrá" není "ne"
+        const nadavka = rozpoznejNadavku(texty, posledniOtazka.current);
+        const odpoved = nadavka ? null : rozpoznejOdpoved(bezNadavek(texty), posledniOtazka.current);
         if (texty.length > 0) {
           // hovor okolo se tiše přeslechne a poslouchá se dál
           if (!jeHrac(hlasitost, odpoved !== null)) {
             setSlyseno(`${texty[0]} (moc potichu, asi někdo jiný)`);
+            return false;
+          }
+          if (nadavka) {
+            // vtipně se ohradí a zopakuje otázku
+            setSlyseno(texty[0]);
+            await pockej(premysleni());
+            if (!(await mluv(dejProjev().nadavka(nadavka), gen))) return true;
+            await pockej(PAUZA_MEZI);
+            await mluv({ text: posledniOtazka.current, nalada: 'klid' }, gen);
             return false;
           }
           if (!odpoved && jeHovorOkolo(texty)) {

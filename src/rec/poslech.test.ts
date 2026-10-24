@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { KRATKY_HLAS, MAX_PORUCH, bezUrazek, jeUrazka, vyberTexty, jeHovorOkolo, jeNesrozumitelne, jePorucha, jeStart, jeZopakuj, pauzaPoPoruse, rozpoznejOdpoved } from './poslech';
+import {
+  KRATKY_HLAS,
+  MAX_PORUCH,
+  bezNadavek,
+  vyberTexty,
+  jeHovorOkolo,
+  jeNesrozumitelne,
+  jePorucha,
+  jeStart,
+  jeZopakuj,
+  pauzaPoPoruse,
+  rozpoznejNadavku,
+  rozpoznejOdpoved,
+} from './poslech';
 
 describe('rozpoznání odpovědi z řeči', () => {
   const pripady: [string, ReturnType<typeof rozpoznejOdpoved>][] = [
@@ -164,23 +177,131 @@ describe('výběr přepisů', () => {
   });
 });
 
-describe('nadávky postavičce', () => {
-  for (const text of ['ty jsi blbá', 'Hluchá!', 'jsi hloupá', 'nic neumíš', 'ty pitomče', 'neslyšíš?']) {
-    it(`"${text}" je nadávka`, () => expect(jeUrazka([text])).toBe(true));
-  }
-  for (const text of ['ne', 'neumí', 'je to osel', 'kráva', 'nevím', 'slepice']) {
-    it(`"${text}" není nadávka`, () => expect(jeUrazka([text])).toBe(false));
-  }
-  it('odpověď vedle nadávky platí', () => {
-    expect(rozpoznejOdpoved(bezUrazek(['ne, ty hluchá']))).toBe('ne');
-    expect(rozpoznejOdpoved(bezUrazek(['nic neumíš']))).toBe(null);
-  });
-});
-
 describe('krátký hlas bez přepisu', () => {
   it('není výpadek, ale nesrozumitelná odpověď', () => {
     const s = { texty: [], chyba: KRATKY_HLAS, trvani: 900 };
     expect(jePorucha(s)).toBe(false);
     expect(jeNesrozumitelne(s)).toBe(true);
+  });
+});
+
+describe('průběžné přepisy z dřívějších událostí', () => {
+  const prubezny = (text: string) => ({ text, jistota: 0, final: false });
+  const finalni = (text: string) => ({ text, jistota: 0.9, final: true });
+
+  it('"ne", které Chrome ve finálním výsledku zahodil, se neztratí', () => {
+    // průběžně "ne", finální událost pak prázdná nebo "opravená"
+    expect(vyberTexty([finalni('')], ['ne'])).toEqual(['ne']);
+    expect(rozpoznejOdpoved(vyberTexty([finalni('mě je')], ['Ne']))).toBe('ne');
+    expect(rozpoznejOdpoved(vyberTexty([], ['ne']))).toBe('ne');
+  });
+  it('rozpracovaný začátek delšího přepisu se nepřidá', () => {
+    expect(vyberTexty([finalni('nejsi chytrá')], ['ne', 'nejsi', 'nejsi chy'])).toEqual(['nejsi chytrá']);
+    expect(vyberTexty([finalni('nevím')], ['ne'])).toEqual(['nevím']);
+    expect(vyberTexty([finalni('je to tak')], ['je'])).toEqual(['je to tak']);
+  });
+  it('nezdvojí, co už je ve výsledku', () => {
+    expect(vyberTexty([finalni('Ne.')], ['ne'])).toEqual(['Ne.']);
+    expect(vyberTexty([prubezny('ne')], ['ne'])).toEqual(['ne']);
+  });
+});
+
+describe('nadávky postavičce', () => {
+  const nadavky: [string, ReturnType<typeof rozpoznejNadavku>][] = [
+    ['Ty jsi blbá', 'hloupost'],
+    ['jsi hloupá', 'hloupost'],
+    ['ty seš ale blbej', 'hloupost'],
+    ['Hlupáku!', 'hloupost'],
+    ['debile', 'hloupost'],
+    ['ty idiote', 'hloupost'],
+    ['nejsi moc chytrá', 'hloupost'],
+    ['nic neumíš', 'hloupost'],
+    ['to je blbost', 'hloupost'],
+    ['to je hloupá otázka', 'hloupost'],
+    ['Liško, ty jsi úplně pitomá', 'hloupost'],
+    ['jsi hluchá?', 'hluchota'],
+    ['Ty jsi hluchej', 'hluchota'],
+    ['špatně slyšíš', 'hluchota'],
+    ['neslyšíš', 'hluchota'],
+    ['ty vole ty jsi hluchá', 'hluchota'],
+    ['máš v uších banány', 'hluchota'],
+    ['nerozumíš', 'hluchota'],
+    ['drž hubu', 'hrubost'],
+    ['Drž zobák!', 'hrubost'],
+    ['sklapni', 'hrubost'],
+    ['ty vole', 'hrubost'],
+    ['jsi otravná', 'hrubost'],
+    ['nesnáším tě', 'hrubost'],
+    ['BLBÁ', 'hloupost'],
+    ['blba', 'hloupost'],
+    ['hlucha', 'hluchota'],
+    ['Hluchá!', 'hluchota'],
+    ['neslyšíš?', 'hluchota'],
+    ['ty pitomče', 'hloupost'],
+    ['ty magore', 'hloupost'],
+    ['ty osle', 'hloupost'],
+    ['to je k ničemu', 'hloupost'],
+  ];
+  for (const [text, druh] of nadavky) {
+    it(`"${text}" → ${druh}`, () => expect(rozpoznejNadavku([text])).toBe(druh));
+  }
+
+  it('nadávka se nepočítá jako odpověď', () => {
+    // "nejsi" by jinak bylo "ne", "je" by bylo "ano"
+    expect(rozpoznejOdpoved(bezNadavek(['nejsi chytrá']))).toBe(null);
+    expect(rozpoznejOdpoved(bezNadavek(['to je blbost']))).toBe(null);
+    expect(rozpoznejOdpoved(bezNadavek(['ty jsi hloupá sova']), 'Je to sova?')).toBe(null);
+    expect(rozpoznejOdpoved(bezNadavek(['neslyšíš']))).toBe(null);
+  });
+
+  const neniNadavka = [
+    'ne',
+    'ano',
+    'nevím',
+    'není',
+    'neumí',
+    'nejsou',
+    'není to blbá odpověď',
+    'nejsi hloupá',
+    'nejsi blbá, jsi chytrá',
+    'osel',
+    'je to osel',
+    'slepice',
+    'tele',
+    'kráva',
+    'husa',
+    'koza',
+    'prase',
+    'lín',
+    'tuňák',
+    'opice',
+    'hlučná',
+    'nerozumím',
+    'neslyšela jsem',
+    'zopakuj to',
+    'nejsi chytrá ne',
+  ];
+  for (const text of neniNadavka) {
+    it(`"${text}" není nadávka`, () => expect(rozpoznejNadavku([text])).toBe(null));
+  }
+
+  it('odpověď vedle nadávky má přednost', () => {
+    expect(rozpoznejNadavku(['ne, ty blbá'])).toBe(null);
+    expect(rozpoznejOdpoved(bezNadavek(['ne, ty blbá']))).toBe('ne');
+    expect(rozpoznejOdpoved(bezNadavek(['ano ty hlupáku']))).toBe('ano');
+    expect(rozpoznejOdpoved(bezNadavek(['nevím, drž hubu']))).toBe('nevim');
+    expect(rozpoznejOdpoved(bezNadavek(['jasně že jo, ty vole']))).toBe('ano');
+    // jasná odpověď v jiné variantě přepisu
+    expect(rozpoznejNadavku(['ty blbá', 'ne'])).toBe(null);
+  });
+
+  it('přepisy bez nadávky se nemění', () => {
+    for (const text of ['ne', 'nejsou', 'je to tak', 'nemá křídla', 'spíš ne', 'banán']) {
+      expect(rozpoznejOdpoved(bezNadavek([text]), 'Je to pták?')).toBe(rozpoznejOdpoved([text], 'Je to pták?'));
+    }
+  });
+
+  it('v dlouhém hovoru okolo nadávku nehledá', () => {
+    expect(rozpoznejNadavku(['a pak říkal že ten kluk ze třídy je úplně blbý a že už s ním nikdy nepůjde ven'])).toBe(null);
   });
 });

@@ -113,6 +113,8 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
 
   const vysledek = new Promise<Slyseni>((resolve, reject) => {
     let prepisy: Prepis[] = [];
+    // průběžné přepisy ze všech událostí: Chrome je ve finální události nahradí, i když finální "ne" zahodí
+    const drivePrubezne: string[] = [];
     let chyba: string | undefined;
     let zkraceno = false;
     let kratkyHlas = false;
@@ -136,6 +138,7 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
       zapis(prepisy.some((p) => p.final) ? 'výsledek' : 'průběžně');
       clearTimeout(dokonci);
       const prubezne = prepisy.filter((p) => !p.final).map((p) => p.text);
+      for (const t of prubezne) if (!drivePrubezne.includes(t)) drivePrubezne.push(t);
       if (prubezne.length && !prepisy.some((p) => p.final) && rozpoznejOdpoved(prubezne)) {
         dokonci = setTimeout(() => {
           zkraceno = true;
@@ -156,7 +159,7 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
       clearTimeout(zalozniStart);
       clearInterval(hlidka);
       zapis('konec');
-      const texty = vyberTexty(prepisy);
+      const texty = vyberTexty(prepisy, drivePrubezne);
       const proc = texty.length ? undefined : kratkyHlas ? KRATKY_HLAS : chyba;
       resolve({ texty, prepisy, chyba: proc, trvani: Date.now() - zacatek, zkraceno, udalosti });
     };
@@ -186,12 +189,23 @@ export function poslouchej(naStart?: () => void, hracDomluvil?: () => boolean): 
 /**
  * Z přepisů vybere ty, se kterými se pracuje: finální, a když žádné nejsou,
  * průběžné. Průběžné se přidají i za finální, protože Chrome finální "ne"
- * občas "opraví" na nesmysl, zatímco průběžně ho slyšel správně.
+ * občas "opraví" na nesmysl nebo prázdný text, zatímco průběžně ho slyšel správně.
+ * `drive` jsou průběžné přepisy z dřívějších událostí: přidají se jen ty, které
+ * pozdější přepis nepokračuje ("nejsi" z "nejsi chytrá" ne, osamocené "ne" ano).
  */
-export function vyberTexty(prepisy: Prepis[]): string[] {
+export function vyberTexty(prepisy: Prepis[], drive: string[] = []): string[] {
   const finalni = prepisy.filter((p) => p.final && p.text.trim()).map((p) => p.text);
   const prubezne = prepisy.filter((p) => !p.final && p.text.trim()).map((p) => p.text);
-  return [...finalni, ...prubezne.filter((t) => !finalni.includes(t))];
+  const texty = [...finalni, ...prubezne.filter((t) => !finalni.includes(t))];
+  const vsechny = [...texty, ...drive].map(normalizuj);
+  for (const t of drive) {
+    const n = normalizuj(t);
+    if (!n || texty.includes(t)) continue;
+    if (vsechny.some((jiny) => jiny !== n && jiny.startsWith(n))) continue;
+    if (texty.some((x) => normalizuj(x) === n)) continue;
+    texty.push(t);
+  }
+  return texty;
 }
 
 function normalizuj(text: string): string {
@@ -250,24 +264,6 @@ export function jeZopakuj(texty: string[]): boolean {
   });
 }
 
-/** Nadávky postavičce ("ty jsi blbá", "hluchá", "nic neumíš"…). Postavička na ně vtipně zareaguje. */
-const URAZKY =
-  /\b(ty jsi |jsi |ty )?(blb[a-z]*|hloup[a-z]*|hluch[a-z]*|pitom[a-z]*|debil[a-z]*|trubk[a-z]*|nemehl[a-z]*|tup[aeyo]|tupec|osle|kravo|idiot[a-z]*|dement[a-z]*|jelit[a-z]*|magor[a-z]*|cvok[a-z]*|hnusn[a-z]*|smrad[a-z]*|smrdis|nanic|k nicemu|nic neumis|neumis nic|neslysis|nerozumis)\b( jsi)?/g;
-
-/** Řekl hráč postavičce nějakou nadávku? */
-export function jeUrazka(texty: string[]): boolean {
-  return texty.some((text) => {
-    const t = normalizuj(text);
-    URAZKY.lastIndex = 0;
-    return slov(t) <= MAX_SLOV_S_ODPOVEDI_NA_KONCI && URAZKY.test(t);
-  });
-}
-
-/** Přepisy bez nadávek, aby "ne, ty hluchá" pořád znamenalo ne. */
-export function bezUrazek(texty: string[]): string[] {
-  return texty.map((text) => normalizuj(text).replace(URAZKY, ' ').replace(/\s+/g, ' ').trim());
-}
-
 const START = /\b(hra|hru|hrat|hrajem|hrajeme|hraju|zacni|zacneme|zaciname|jdeme|start|mam ho|mam)\b/;
 
 /** Řekl hráč startovací slovo ("hra")? */
@@ -276,6 +272,68 @@ export function jeStart(texty: string[]): boolean {
     const t = normalizuj(text);
     return slov(t) <= MAX_SLOV && START.test(t);
   });
+}
+
+/** Na co si hráč stěžuje: že je postavička hloupá, že špatně slyší, nebo je prostě hrubý. */
+export type DruhNadavky = 'hloupost' | 'hluchota' | 'hrubost';
+
+// Pořadí je důležité: "ty vole, ty jsi hluchá" je hlavně o uších.
+// Zvířata z databáze (osel, kráva, husa, koza, prase…) tu nejsou, ta jsou odpověď nebo tip.
+const NADAVKY: [DruhNadavky, RegExp][] = [
+  [
+    'hluchota',
+    /\b(hluch[a-z]*|nahluchl[a-z]*|neslysis|neslysite|nic neslysis|spatne slysis|blbe slysis|neposlouchas|nerozumis|mas (ucpane|zalehle|zavrene) usi|mas v usich [a-z]+)\b/g,
+  ],
+  [
+    'hloupost',
+    /\b(blb[a-z]*|hloup[a-z]*|hlupa[a-z]*|pitom[a-z]*|debil[a-z]*|idiot[a-z]*|kreten[a-z]*|tup(a|y|ej|ec|ce|ci|ko|oun|ounka)|natvrdl[a-z]*|nemehl[a-z]*|trubk[oa]|osle|dement[a-z]*|jelit[a-z]*|magor[a-z]*|cvok[a-z]*|nanic|nic neumis|neumis nic|nic nevis|nevis nic|nechapes|k nicemu|nejsi (moc |vubec )?chytr[a-z]*|nemas (zadny )?(mozek|rozum)|jsi spatn[a-z]*|jsi hrozn[a-z]*)\b/g,
+  ],
+  [
+    'hrubost',
+    /\b((drz|zavri|sklapni) (hubu|zobak|pusu|klapacku|tlamu|chlebarnu)|sklapni|zmlkni|bud zticha|ty vole|vole|kravo|kurv[a-z]*|hovn[a-z]*|prdel[a-z]*|hajzl[a-z]*|jdi do haje|vypadni|zmiz|otrav[a-z]*|nesnasim te|smrdis|smrad[a-z]*|hnusn[a-z]*|hnusak[a-z]*|oskliv[a-z]*|kecas|kecy)\b/g,
+  ],
+];
+
+/** Zápor těsně před nadávkou ji obrací: "nejsi blbá", "není to hloupá otázka". Holé "ne" je odpověď ("ne, ty blbá"). */
+const ZAPOR_PRED = /\b(nejsi|nejses|neses|neni|nebyl[a-z]*|nebudes)( [a-z]+)?\s*$/;
+
+/** Slova, která kolem nadávky nic neříkají; po jejím odstranění se z nich nesmí stát "je" = ano. */
+const VATA =
+  /\b(ty|ti|te|tebe|jsi|si|ses|jses|sis|je|jsou|to|ta|ten|ale|fakt|vazne|uplne|totalne|strasne|hrozne|moc|tak|takova|takovy|takovej|jako|proste|normalne|zase|porad|uz|dneska|nejaka|nejakej|nejaky|tvoje|tvuj|otazka|otazku|otazky|odpoved|no|hele|lisko|liska|lili|robiku|robik|robote|sovo|sova|sono|sona|zabaku|zabak|kvaku|kvak|banane|banan|bohousi|bohous|a|i)\b/g;
+
+/** Nejdelší věta, ve které se nadávka ještě hledá. */
+const MAX_SLOV_NADAVKY = 10;
+
+function najdiNadavku(t: string): { druh: DruhNadavky | null; zbytek: string } {
+  if (slov(t) > MAX_SLOV_NADAVKY) return { druh: null, zbytek: t };
+  let druh: DruhNadavky | null = null;
+  let zbytek = t;
+  for (const [d, vzor] of NADAVKY) {
+    zbytek = zbytek.replace(vzor, (shoda: string, ...args: unknown[]) => {
+      const kde = args.find((a) => typeof a === 'number') as number;
+      if (ZAPOR_PRED.test(zbytek.slice(0, kde))) return shoda;
+      druh ??= d;
+      return ' ';
+    });
+  }
+  if (!druh) return { druh: null, zbytek: t };
+  return { druh, zbytek: zbytek.replace(VATA, ' ').replace(/\s+/g, ' ').trim() };
+}
+
+/** Přepisy bez nadávek, aby "nejsi chytrá" nebylo "ne" a "to je blbost" nebylo "je" = ano. */
+export function bezNadavek(texty: string[]): string[] {
+  return texty.map((text) => najdiNadavku(normalizuj(text)).zbytek);
+}
+
+/**
+ * Nadává hráč postavičce? Vrací null, když v přepisu není nadávka, nebo když
+ * vedle ní hráč odpověděl ("ne, ty blbá"): odpověď má vždycky přednost.
+ */
+export function rozpoznejNadavku(texty: string[], otazka = ''): DruhNadavky | null {
+  let druh: DruhNadavky | null = null;
+  for (const text of texty) druh ??= najdiNadavku(normalizuj(text)).druh;
+  if (!druh) return null;
+  return rozpoznejOdpoved(bezNadavek(texty), otazka) ? null : druh;
 }
 
 /** Jak dlouhou větu ještě prohledá, jestli nekončí odpovědí ("…je to noční zvíře? ne"). */

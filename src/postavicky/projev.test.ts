@@ -98,6 +98,47 @@ describe('projev podle situace', () => {
   });
 });
 
+describe('reakce na nadávky', () => {
+  const DRUHY = ['hloupost', 'hluchota', 'hrubost'] as const;
+  // hrubá slova, která postavička nesmí říct ani při ohrazení
+  const VULGARNI = /\b(vole|vůl|debil|idiot|kurv|hovn|prdel|hajzl|hub[auo]|držk|kreten)/i;
+
+  it.each(VSECHNY)('%s má na každou nadávku víc laskavých reakcí s emocí', (_, h) => {
+    for (const druh of DRUHY) {
+      expect(h.nadavka[druh].length).toBeGreaterThanOrEqual(3);
+      for (const r of h.nadavka[druh]) {
+        expect(VYRAZY[r.nalada], r.text).toBeDefined();
+        expect(r.text).not.toMatch(VULGARNI);
+      }
+    }
+    for (const t of h.nadavkaZnovu) expect(t).not.toMatch(VULGARNI);
+  });
+
+  it.each(VSECHNY)('%s se tváří různě: naoko dotčeně i s humorem', (_, h) => {
+    const nalady = new Set(DRUHY.flatMap((d) => h.nadavka[d].map((r) => r.nalada)));
+    expect(nalady.has('dotcena')).toBe(true);
+    expect(nalady.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('neřekne stejnou reakci dvakrát po sobě', () => {
+    const p = new Projev(BANAN);
+    let predchozi = '';
+    for (let i = 0; i < 40; i++) {
+      const r = p.nadavka('hloupost');
+      expect(r.text).not.toBe(predchozi);
+      predchozi = r.text;
+    }
+  });
+
+  it('reaguje podle toho, čím jí hráč nadává, a pak to vezme s nadhledem', () => {
+    const p = new Projev(SOVA);
+    expect(SOVA.nadavka.hluchota.map((r) => r.text)).toContain(p.nadavka('hluchota').text);
+    expect(SOVA.nadavka.hrubost.map((r) => r.text)).toContain(p.nadavka('hrubost').text);
+    expect(SOVA.nadavkaZnovu).toContain(p.nadavka('hloupost').text);
+    expect(SOVA.nadavka.hloupost.map((r) => r.text)).toContain(p.nadavka('hloupost').text);
+  });
+});
+
 describe('hlas a rytmus řeči', () => {
   it('rozdělí text na věty', () => {
     expect(rozdelNaVety('Hú hú! Je to sova? Asi… možná.')).toEqual(['Hú hú!', 'Je to sova?', 'Asi…', 'možná.']);

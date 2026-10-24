@@ -10,7 +10,9 @@ export type Nalada =
   | 'radost'
   | 'oslava'
   | 'zklamani'
-  | 'smutek';
+  | 'smutek'
+  /** naoko uražená: nos nahoru, pohled stranou, přivřené oči */
+  | 'dotcena';
 
 /** [zvednutí, natočení vnitřního konce nahoru] pro levé a pravé obočí */
 type Oboci = [[number, number], [number, number]];
@@ -147,6 +149,18 @@ export const VYRAZY: Record<Nalada, Vyraz> = {
     skok: 0,
     chveni: 0,
     hlas: { pitch: 0.9, rate: 0.86 },
+  },
+  dotcena: {
+    oci: 0.72,
+    pohled: [0.4, 0.18],
+    oboci: [[0.1, -0.06], [0.1, -0.06]],
+    hlava: [-0.22, -0.2],
+    sklon: -0.06,
+    pusa: 0,
+    usmev: -0.2,
+    skok: 0,
+    chveni: 0,
+    hlas: { pitch: 1.08, rate: 0.95 },
   },
 };
 
