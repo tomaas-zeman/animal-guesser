@@ -17,7 +17,7 @@ const SKUPINY: Record<string, string[]> = {
   kytovci: ['Velryba', 'Keporkak', 'Kosatka', 'Delfín'],
   papoušci: ['Papoušek', 'Andulka', 'Kakadu', 'Žako'],
   sovy: ['Sova', 'Výr', 'Sněžná sova', 'Sova pálená'],
-  dravci: ['Orel', 'Sokol', 'Sup'],
+  dravci: ['Orel', 'Sokol', 'Sup', 'Harpyje'],
   jeleni: ['Jelen', 'Srnka', 'Los', 'Sob', 'Daněk'],
   opice: ['Šimpanz', 'Gorila', 'Orangutan', 'Pavián', 'Lemur'],
   hlodavci: ['Myš', 'Potkan', 'Křeček', 'Morče', 'Činčila', 'Kapybara', 'Svišť', 'Dikobraz'],
