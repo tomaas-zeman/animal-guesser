@@ -127,6 +127,7 @@ const SLUZBY = { edge, azure, google, elevenlabs };
 const postavy = values.postava ? [values.postava] : Object.keys(HLASKY);
 const limit = values.limit ? Number(values.limit) : Infinity;
 let celkem = 0;
+const chyby: string[] = [];
 let znaku = 0;
 
 for (const postava of postavy) {
@@ -163,8 +164,15 @@ for (const postava of postavy) {
           if (celkem % 25 === 0) console.log(`  … ${celkem}`);
           break;
         } catch (e) {
-          if (pokus >= 4) throw e;
-          await new Promise((r) => setTimeout(r, 1000 * 2 ** pokus));
+          if (pokus < 3) {
+            await new Promise((r) => setTimeout(r, 1000 * 2 ** pokus));
+            continue;
+          }
+          // jedna nepovedená věta nezastaví ostatní, tu řekne dál syntéza prohlížeče
+          chyby.push(`${postava}/${u.id} „${textProTts(u)}“: ${(e as Error).message.split('\n').filter(Boolean).at(-1)}`);
+          console.warn(`  ✗ ${chyby.at(-1)}`);
+          if (chyby.length >= 20 && celkem === 0) throw new Error('Nic se nepovedlo namluvit, končím.');
+          break;
         }
       }
     }
@@ -173,4 +181,5 @@ for (const postava of postavy) {
 }
 
 console.log(`Hotovo: ${celkem} nahrávek, ${znaku} znaků.${values.zkouska ? ' (jen zkouška, nic se nenamluvilo)' : ''}`);
+if (chyby.length) console.warn(`Nepovedlo se ${chyby.length} vět:\n${chyby.join('\n')}`);
 if (!values.zkouska && existsSync(join(koren, 'scripts', 'index-hlasu.ts'))) await import('./index-hlasu');
