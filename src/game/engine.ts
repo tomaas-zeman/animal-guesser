@@ -87,6 +87,10 @@ export interface Nastaveni {
   jistotaTipu: number;
   /** po kolika otázkách tipuje i s menší jistotou */
   trpelivost: number;
+  /** od jaké jistoty tipuje, když už žádná otázka nemůže tip změnit */
+  jistotaBezOtazky: number;
+  /** o kolik musí otázka zvednout šanci na správný tip, aby se vyplatilo se ptát */
+  prinosOtazky: number;
   /** nejvýš otázek celkem */
   maxOtazek: number;
   /** po kolika špatných tipech se vzdá */
@@ -101,6 +105,8 @@ export const vychoziNastaveni: Nastaveni = {
   vahaJisteho: 3,
   jistotaTipu: 0.9,
   trpelivost: 18,
+  jistotaBezOtazky: 0.8,
+  prinosOtazky: 0.02,
   maxOtazek: 30,
   maxTipu: 4,
   pestrost: 0.03,
@@ -248,9 +254,38 @@ export class Hra {
     // po delším ptaní stačí, když favorit jasně vede
     if (this.pocetOtazek >= n.trpelivost && nej.pst >= 0.5 && nej.pst >= 3 * druhy) return tip;
 
+    // favorit je skoro jistý a odpověď na žádnou otázku by tip (skoro) nezměnila:
+    // další otázka by jen potvrzovala to, co je jasné
+    if (nej.pst >= n.jistotaBezOtazky && this.prinosNejlepsiOtazky() < n.prinosOtazky) return tip;
+
     const otazka = this.vyberOtazku();
     if (!otazka) return tip;
     return { typ: 'otazka', id: otazka, text: this.db.otazky[otazka] };
+  }
+
+  /**
+   * O kolik nejvíc může jedna otázka zvednout šanci, že tip po ní bude správně.
+   * Teď by postavička tipla favorita (šance = jeho pravděpodobnost). Po odpovědi tipne
+   * nejpravděpodobnější zvíře; když je to u obou odpovědí zase favorit, otázka nic nepřinese.
+   */
+  prinosNejlepsiOtazky(): number {
+    const mozna = this.mozna();
+    const nej = Math.max(...this.pst);
+    let max = 0;
+    for (const id of Object.keys(this.db.otazky)) {
+      if (!this.muzeSePtat(id, mozna)) continue;
+      const chyba = this.chybaOtazky(id);
+      let ano = 0;
+      let ne = 0;
+      this.pst.forEach((p, i) => {
+        if (p === 0) return;
+        const v = this.db.zvirata[i].a[id] ?? 0;
+        ano = Math.max(ano, p * verohodnost(v, 'ano', chyba));
+        ne = Math.max(ne, p * verohodnost(v, 'ne', chyba));
+      });
+      max = Math.max(max, ano + ne - nej);
+    }
+    return max;
   }
 
   /**

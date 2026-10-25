@@ -21,8 +21,8 @@ describe('simulace hádání', () => {
     console.log('pečlivý hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.97);
     expect(r.naPrvni).toBeGreaterThan(0.97);
-    // s ~250 zvířaty je potřeba zhruba o otázku víc než se 140
-    expect(r.prumerOtazek).toBeLessThan(13);
+    // když je zvíře jasné, nezdržuje se potvrzujícími otázkami
+    expect(r.prumerOtazek).toBeLessThan(12);
     expect(r.rozporneTipy).toBe(0);
     expect(r.zbytecneOtazky).toBe(0);
   });
@@ -33,7 +33,7 @@ describe('simulace hádání', () => {
     console.log('běžný hráč', r);
     expect(r.uspesnost).toBeGreaterThan(0.98);
     expect(r.naPrvni).toBeGreaterThan(0.88);
-    expect(r.prumerOtazek).toBeLessThan(15.5);
+    expect(r.prumerOtazek).toBeLessThan(14.5);
     expect(r.rozporneTipy).toBe(0);
     expect(r.zbytecneOtazky).toBe(0);
   });
@@ -74,7 +74,8 @@ describe('simulace hádání', () => {
     console.log('jeden omyl', { uspesnost: uhodl / her, naPrvni: naPrvni / her });
     expect(rozporne).toEqual([]);
     expect(uhodl / her).toBeGreaterThan(0.99);
-    expect(naPrvni / her).toBeGreaterThan(0.9);
+    // potvrzující otázky by omyl častěji odhalily (0,93), ale hra by byla o otázku delší
+    expect(naPrvni / her).toBeGreaterThan(0.86);
   });
 
   it('zvíře, které postavička nezná: tipuje jen zvířata, která sedí na odpovědi', () => {
