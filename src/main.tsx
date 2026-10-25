@@ -3,15 +3,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
 
-// nahrávací stránka pro namlouvání hlasů se načte jen na ?nahravani
-const Nahravani = lazy(() => import('./Nahravani'));
-const nahravani = new URLSearchParams(location.search).has('nahravani');
+// the recording page for recording voices loads only on ?recording
+const RecordingPage = lazy(() => import('./RecordingPage'));
+const recording = new URLSearchParams(location.search).has('recording');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {nahravani ? (
+    {recording ? (
       <Suspense>
-        <Nahravani />
+        <RecordingPage />
       </Suspense>
     ) : (
       <App />

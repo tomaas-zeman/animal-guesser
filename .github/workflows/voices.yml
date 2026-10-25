@@ -1,0 +1,144 @@
+name: Record voices
+
+# Records the missing sentences of the characters: with the TTS_API_KEY secret using Google Chirp 3 HD voices,
+# without it using Microsoft Edge neural voices (free, no key). The voices are in scripts/voices-tts.json. The recordings are
+# committed to the branch it runs on. Each character runs in its own job
+# (a separate machine, in parallel). Only the difference is recorded: sentences that have no recording yet;
+# recordings of sentences the game no longer says are deleted.
+# Runs only manually (Actions → Record voices → Run workflow), nothing else triggers it.
+# Sentences without a recording are said by the browser's speech synthesis.
+on:
+  workflow_dispatch:
+    inputs:
+      character:
+        description: 'Only one character (fox, banana, vojtachu), empty = all'
+        required: false
+        default: ''
+      overwrite:
+        description: 'Record again even what is already recorded (e.g. after changing a voice)'
+        type: boolean
+        default: false
+      compare:
+        description: 'Only compare voices: a test sentence in several voices to download (nothing is committed)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: voices-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    if: inputs.compare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          npm ci
+          pip install --upgrade edge-tts
+      - env:
+          GOOGLE_TTS_KEY: ${{ secrets.TTS_API_KEY || secrets.GOOGLE_TTS_KEY }}
+        run: npm run voices:tts -- --compare
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice-comparison
+          path: compare/
+          retention-days: 7
+
+  record:
+    if: ${{ !inputs.compare }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        character: [fox, banana, vojtachu]
+    steps:
+      - uses: actions/checkout@v4
+        if: inputs.character == '' || inputs.character == matrix.character
+      - uses: actions/setup-node@v4
+        if: inputs.character == '' || inputs.character == matrix.character
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        if: inputs.character == '' || inputs.character == matrix.character
+        with:
+          python-version: '3.12'
+      - name: Install
+        if: inputs.character == '' || inputs.character == matrix.character
+        run: |
+          npm ci
+          pip install --upgrade edge-tts
+      - name: Record
+        if: inputs.character == '' || inputs.character == matrix.character
+        # whatever is not finished is filled in by the next run (only what is missing gets recorded)
+        timeout-minutes: 60
+        env:
+          OVERWRITE: ${{ inputs.overwrite }}
+          # with a key in secrets (TTS_API_KEY) Google (Chirp 3 HD) records, without it Edge for free
+          GOOGLE_TTS_KEY: ${{ secrets.TTS_API_KEY || secrets.GOOGLE_TTS_KEY }}
+        run: |
+          service=$([ -n "$GOOGLE_TTS_KEY" ] && echo google || echo edge)
+          echo "Service: $service"
+          npm run voices:tts -- $service --character ${{ matrix.character }} $([ "$OVERWRITE" = "true" ] && echo --overwrite)
+      # even after an error, whatever got recorded is saved
+      - uses: actions/upload-artifact@v4
+        if: always() && (inputs.character == '' || inputs.character == matrix.character)
+        with:
+          name: voices-${{ matrix.character }}
+          path: public/voices/${{ matrix.character }}/
+          if-no-files-found: ignore
+          retention-days: 3
+
+  commit:
+    needs: record
+    # even if some character failed or the run was cancelled, what is done gets saved
+    if: always() && !inputs.compare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: voices-*
+          path: /tmp/voices
+      - name: Commit recordings
+        id: commit
+        run: |
+          # a character's folder is replaced entirely so that deleted recordings disappear too
+          for d in /tmp/voices/voices-*; do
+            [ -d "$d" ] || continue
+            p=${d##*/voices-}
+            rm -rf "public/voices/$p"
+            mkdir -p "public/voices/$p"
+            cp "$d"/* "public/voices/$p/"
+          done
+          # folders of characters that are no longer in the game (e.g. after a rename) are deleted; the list is the same as in the matrix
+          for d in public/voices/*/; do
+            p=$(basename "$d")
+            case " fox banana vojtachu " in *" $p "*) ;; *) rm -rf "$d" ;; esac
+          done
+          git add -A public/voices
+          if git diff --cached --quiet; then echo "Nothing new."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Recorded character voices"
+          git pull --rebase
+          git push
+          echo "zmena=1" >> "$GITHUB_OUTPUT"
+      # a push from a workflow does not trigger other workflows, so we trigger the deploy manually
+      - name: Deploy
+        if: steps.commit.outputs.zmena == '1' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --ref master
