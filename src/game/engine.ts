@@ -1,374 +1,374 @@
-// Hádací logika. Nezávisí na Reactu ani na 3D, takže se dá testovat simulací.
+// Guessing logic. Independent of React and 3D, so it can be tested by simulation.
 //
-// Princip: každé zvíře má pravděpodobnost, že je to právě ono (na začátku stejnou).
-// Po každé odpovědi se pravděpodobnosti přepočítají Bayesovým pravidlem.
-// Další otázka je ta, po které čekáme nejmenší zbývající nejistotu (entropii),
-// tedy největší informační zisk. Jedna špatná odpověď proto zvíře nevyřadí,
-// jen ho odsune dozadu.
+// Principle: every animal has a probability of being the one (equal at the start).
+// After each answer the probabilities are recomputed with Bayes' rule.
+// The next question is the one after which we expect the least remaining uncertainty (entropy),
+// i.e. the largest information gain. One wrong answer therefore does not eliminate an animal,
+// it only pushes it back.
 //
-// Dvě pojistky navíc, aby hádání působilo logicky:
-// - Pravidla (pták má peří, pták není savec…) odvodí, co už z odpovědí plyne,
-//   a na to se postavička znovu neptá.
-// - Zvíře, které jasně odporuje některé odpovědi (řekl "není noční" a sova je
-//   noční vždycky), se netipuje, dokud jsou ve hře zvířata bez rozporu.
+// Two extra safeguards so that the guessing feels logical:
+// - Rules (a bird has feathers, a bird is not a mammal…) derive what already follows from the answers,
+//   and the character does not ask about it again.
+// - An animal that clearly contradicts some answer (the player said "not nocturnal" and an owl is
+//   always nocturnal) is not guessed while animals without a contradiction are still in play.
 
-export type Odpoved = 'ano' | 'ne' | 'nevim' | 'mozna';
+export type Answer = 'yes' | 'no' | 'unknown' | 'maybe';
 
-export interface Zvire {
-  jmeno: string;
+export interface Animal {
+  name: string;
   emoji: string;
-  /** id vlastnosti -> pravděpodobnost odpovědi "ano"; chybějící = 0 */
-  a: Record<string, number>;
+  /** trait id -> probability of the answer "yes"; missing = 0 */
+  traits: Record<string, number>;
 }
 
-export interface Databaze {
-  otazky: Record<string, string>;
-  zvirata: Zvire[];
-  /** "a -> b", "a -> !b", "!a -> b"…: když platí levá strana, platí i pravá (a obráceně její opak) */
-  pravidla?: string[];
-  /** skupiny vlastností, ze kterých platí nejvýš jedna (savec, pták, ryba…) */
-  vylucne?: string[][];
+export interface Database {
+  questions: Record<string, string>;
+  animals: Animal[];
+  /** "a -> b", "a -> !b", "!a -> b"…: when the left side holds, so does the right (and, conversely, the opposite of the left follows from the opposite of the right) */
+  rules?: string[];
+  /** groups of traits of which at most one holds (mammal, bird, fish…) */
+  exclusive?: string[][];
   /**
-   * Otázky s jistou odpovědí (je to pták, má křídla, žije v moři…). Rozpor s nimi váží víc
-   * než s nejistými (je hnědé, umí skákat), takže zvíře, které nesedí jen v barvě,
-   * má přednost před zvířetem z úplně jiné skupiny.
+   * Questions with a certain answer (it is a bird, has wings, lives in the sea…). A contradiction with them weighs more
+   * than with uncertain ones (is brown, can jump), so an animal that only fails on color
+   * is preferred over an animal from a completely different group.
    */
-  jiste?: string[];
+  certain?: string[];
 }
 
-/** Vlastnost s hodnotou: [id, platí?] */
-type Fakt = [string, boolean];
+/** A trait with a value: [id, holds?] */
+type Fact = [string, boolean];
 
-export interface Implikace {
-  kdyz: Fakt;
-  pak: Fakt;
+export interface Implication {
+  when: Fact;
+  then: Fact;
 }
 
-function fakt(text: string): Fakt {
+function fact(text: string): Fact {
   const t = text.trim();
   return t.startsWith('!') ? [t.slice(1).trim(), false] : [t, true];
 }
 
-/** Rozloží pravidla databáze na implikace i s obměnami (z "a -> b" plyne i "!b -> !a"). */
-export function implikace(db: Databaze): Implikace[] {
-  const vysledek: Implikace[] = [];
-  const pridej = (kdyz: Fakt, pak: Fakt) => {
-    vysledek.push({ kdyz, pak }, { kdyz: [pak[0], !pak[1]], pak: [kdyz[0], !kdyz[1]] });
+/** Expands the database rules into implications including their contrapositives ("a -> b" also implies "!b -> !a"). */
+export function implications(db: Database): Implication[] {
+  const result: Implication[] = [];
+  const add = (when: Fact, then: Fact) => {
+    result.push({ when, then }, { when: [then[0], !then[1]], then: [when[0], !when[1]] });
   };
-  for (const pravidlo of db.pravidla ?? []) {
-    const [l, p] = pravidlo.split('->');
-    if (p === undefined) throw new Error(`špatné pravidlo: ${pravidlo}`);
-    pridej(fakt(l), fakt(p));
+  for (const rule of db.rules ?? []) {
+    const [l, p] = rule.split('->');
+    if (p === undefined) throw new Error(`invalid rule: ${rule}`);
+    add(fact(l), fact(p));
   }
-  for (const skupina of db.vylucne ?? []) {
-    for (const a of skupina) for (const b of skupina) if (a < b) pridej([a, true], [b, false]);
+  for (const group of db.exclusive ?? []) {
+    for (const a of group) for (const b of group) if (a < b) add([a, true], [b, false]);
   }
-  return vysledek;
+  return result;
 }
 
-/** Odpovídá zvíře s pravděpodobností p jasně opačně, než hráč řekl? */
-export function jeRozpor(p: number, odpoved: Odpoved): boolean {
-  return (odpoved === 'ano' && p <= 0.1) || (odpoved === 'ne' && p >= 0.9);
+/** Does an animal with probability p clearly answer the opposite of what the player said? */
+export function isContradiction(p: number, answer: Answer): boolean {
+  return (answer === 'yes' && p <= 0.1) || (answer === 'no' && p >= 0.9);
 }
 
-export type Tah =
-  | { typ: 'otazka'; id: string; text: string }
-  | { typ: 'tip'; index: number; zvire: Zvire; jistota: number }
-  | { typ: 'vzdavam' };
+export type Move =
+  | { type: 'question'; id: string; text: string }
+  | { type: 'guess'; index: number; animal: Animal; confidence: number }
+  | { type: 'giveUp' };
 
-export interface Nastaveni {
-  /** jak často se člověk splete i u jasné vlastnosti */
-  chyba: number;
-  /** jak často se splete u jisté otázky (pták, křídla…) */
-  chybaJista: number;
-  /** kolik nejistých rozporů (barva, skákání) váží jeden rozpor s jistou otázkou */
-  vahaJisteho: number;
-  /** od jaké jistoty postavička tipuje */
-  jistotaTipu: number;
-  /** po kolika otázkách tipuje i s menší jistotou */
-  trpelivost: number;
-  /** od jaké jistoty tipuje, když už žádná otázka nemůže tip změnit */
-  jistotaBezOtazky: number;
-  /** o kolik musí otázka zvednout šanci na správný tip, aby se vyplatilo se ptát */
-  prinosOtazky: number;
-  /** nejvýš otázek celkem */
-  maxOtazek: number;
-  /** po kolika špatných tipech se vzdá */
-  maxTipu: number;
-  /** náhodnost výběru otázky (0 = vždy ta nejlepší) */
-  pestrost: number;
+export interface Settings {
+  /** how often a person errs even on a clear trait */
+  mistakeRate: number;
+  /** how often they err on a certain question (bird, wings…) */
+  certainMistakeRate: number;
+  /** how many uncertain contradictions (color, jumping) one contradiction with a certain question weighs */
+  certainWeight: number;
+  /** from what confidence the character guesses */
+  guessConfidence: number;
+  /** after how many questions it guesses even with lower confidence */
+  patience: number;
+  /** from what confidence it guesses when no question can change the guess anymore */
+  confidenceWithoutQuestion: number;
+  /** by how much a question must raise the chance of a correct guess to be worth asking */
+  questionGain: number;
+  /** at most this many questions overall */
+  maxQuestions: number;
+  /** after how many wrong guesses it gives up */
+  maxGuesses: number;
+  /** randomness of question choice (0 = always the best one) */
+  variety: number;
 }
 
-export const vychoziNastaveni: Nastaveni = {
-  chyba: 0.06,
-  chybaJista: 0.03,
-  vahaJisteho: 3,
-  jistotaTipu: 0.9,
-  trpelivost: 18,
-  jistotaBezOtazky: 0.8,
-  prinosOtazky: 0.02,
-  maxOtazek: 30,
-  maxTipu: 4,
-  pestrost: 0.03,
+export const defaultSettings: Settings = {
+  mistakeRate: 0.06,
+  certainMistakeRate: 0.03,
+  certainWeight: 3,
+  guessConfidence: 0.9,
+  patience: 18,
+  confidenceWithoutQuestion: 0.8,
+  questionGain: 0.02,
+  maxQuestions: 30,
+  maxGuesses: 4,
+  variety: 0.03,
 };
 
-/** Pravděpodobnost dané odpovědi, když je vlastnost u zvířete pravdivá s pravděpodobností p. */
-export function verohodnost(p: number, odpoved: Odpoved, chyba: number): number {
-  const ano = chyba + (1 - 2 * chyba) * p;
-  switch (odpoved) {
-    case 'ano':
-      return ano;
-    case 'ne':
-      return 1 - ano;
-    // "může být" je slabé ano: posune, ale nikoho nevyřadí
-    case 'mozna':
-      return 0.25 + 0.5 * ano;
-    case 'nevim':
+/** Probability of the given answer when the trait is true for the animal with probability p. */
+export function likelihood(p: number, answer: Answer, mistakeRate: number): number {
+  const yes = mistakeRate + (1 - 2 * mistakeRate) * p;
+  switch (answer) {
+    case 'yes':
+      return yes;
+    case 'no':
+      return 1 - yes;
+    // "maybe" is a weak yes: it shifts things but eliminates nobody
+    case 'maybe':
+      return 0.25 + 0.5 * yes;
+    case 'unknown':
       return 1;
   }
 }
 
-function entropie(w: number[]): number {
-  let suma = 0;
-  for (const x of w) suma += x;
-  if (suma <= 0) return 0;
+function entropy(w: number[]): number {
+  let sum = 0;
+  for (const x of w) sum += x;
+  if (sum <= 0) return 0;
   let h = 0;
-  for (const x of w) if (x > 0) h -= (x / suma) * Math.log2(x / suma);
+  for (const x of w) if (x > 0) h -= (x / sum) * Math.log2(x / sum);
   return h;
 }
 
-export class Hra {
-  readonly db: Databaze;
-  readonly nastaveni: Nastaveni;
+export class Game {
+  readonly db: Database;
+  readonly settings: Settings;
   private rng: () => number;
-  /** pravděpodobnosti zvířat (normalizované, vyloučená mají 0) */
-  pst: number[];
-  /** u kolika odpovědí zvíře jasně nesedí; rozpor s jistou otázkou váží `vahaJisteho` */
-  rozpory: number[];
-  /** u kolika jistých odpovědí zvíře nesedí */
-  jisteRozpory: number[];
-  polozene = new Set<string>();
-  /** co už z odpovědí plyne (přímo nebo podle pravidel) */
-  zname = new Map<string, boolean>();
-  historie: { id: string; odpoved: Odpoved }[] = [];
-  spatneTipy: number[] = [];
-  private pravidla: Implikace[];
-  private jiste: Set<string>;
+  /** probabilities of the animals (normalized, eliminated ones are 0) */
+  prob: number[];
+  /** for how many answers the animal clearly does not fit; a contradiction with a certain question weighs `certainWeight` */
+  contradictions: number[];
+  /** for how many certain answers the animal does not fit */
+  certainContradictions: number[];
+  asked = new Set<string>();
+  /** what already follows from the answers (directly or by the rules) */
+  known = new Map<string, boolean>();
+  history: { id: string; answer: Answer }[] = [];
+  wrongGuesses: number[] = [];
+  private rules: Implication[];
+  private certain: Set<string>;
 
-  constructor(db: Databaze, nastaveni: Partial<Nastaveni> = {}, rng: () => number = Math.random) {
+  constructor(db: Database, settings: Partial<Settings> = {}, rng: () => number = Math.random) {
     this.db = db;
-    this.nastaveni = { ...vychoziNastaveni, ...nastaveni };
+    this.settings = { ...defaultSettings, ...settings };
     this.rng = rng;
-    this.pst = db.zvirata.map(() => 1 / db.zvirata.length);
-    this.rozpory = db.zvirata.map(() => 0);
-    this.jisteRozpory = db.zvirata.map(() => 0);
-    this.pravidla = implikace(db);
-    this.jiste = new Set(db.jiste ?? []);
+    this.prob = db.animals.map(() => 1 / db.animals.length);
+    this.contradictions = db.animals.map(() => 0);
+    this.certainContradictions = db.animals.map(() => 0);
+    this.rules = implications(db);
+    this.certain = new Set(db.certain ?? []);
   }
 
-  private chybaOtazky(id: string): number {
-    return this.jiste.has(id) ? this.nastaveni.chybaJista : this.nastaveni.chyba;
+  private questionMistakeRate(id: string): number {
+    return this.certain.has(id) ? this.settings.certainMistakeRate : this.settings.mistakeRate;
   }
 
-  get pocetOtazek(): number {
-    return this.historie.length;
+  get questionCount(): number {
+    return this.history.length;
   }
 
-  /** Zvířata seřazená od nejpravděpodobnějšího. */
-  poradi(): { index: number; pst: number }[] {
-    return this.pst
-      .map((pst, index) => ({ index, pst }))
-      .filter((x) => x.pst > 0)
-      .sort((a, b) => b.pst - a.pst);
+  /** Animals ranked from the most probable. */
+  ranking(): { index: number; prob: number }[] {
+    return this.prob
+      .map((prob, index) => ({ index, prob }))
+      .filter((x) => x.prob > 0)
+      .sort((a, b) => b.prob - a.prob);
   }
 
-  /** Jak moc postavička čeká na otázku odpověď ano (0–1), podle toho, která zvířata jsou ve hře. */
-  ocekavaneAno(id: string): number {
-    let suma = 0;
-    this.pst.forEach((p, i) => (suma += p * (this.db.zvirata[i].a[id] ?? 0)));
-    return suma;
+  /** How much the character expects the answer to a question to be yes (0–1), given which animals are still in play. */
+  expectedYes(id: string): number {
+    let sum = 0;
+    this.prob.forEach((p, i) => (sum += p * (this.db.animals[i].traits[id] ?? 0)));
+    return sum;
   }
 
-  odpovez(id: string, odpoved: Odpoved): void {
-    this.polozene.add(id);
-    this.historie.push({ id, odpoved });
-    const chyba = this.chybaOtazky(id);
-    const jista = this.jiste.has(id);
-    const vaha = jista ? this.nastaveni.vahaJisteho : 1;
-    this.pst = this.pst.map((p, i) => p * verohodnost(this.db.zvirata[i].a[id] ?? 0, odpoved, chyba));
-    this.db.zvirata.forEach((z, i) => {
-      if (!jeRozpor(z.a[id] ?? 0, odpoved)) return;
-      this.rozpory[i] += vaha;
-      if (jista) this.jisteRozpory[i]++;
+  answer(id: string, answer: Answer): void {
+    this.asked.add(id);
+    this.history.push({ id, answer });
+    const mistakeRate = this.questionMistakeRate(id);
+    const certain = this.certain.has(id);
+    const weight = certain ? this.settings.certainWeight : 1;
+    this.prob = this.prob.map((p, i) => p * likelihood(this.db.animals[i].traits[id] ?? 0, answer, mistakeRate));
+    this.db.animals.forEach((z, i) => {
+      if (!isContradiction(z.traits[id] ?? 0, answer)) return;
+      this.contradictions[i] += weight;
+      if (certain) this.certainContradictions[i]++;
     });
-    this.normalizuj();
-    if (odpoved === 'ano' || odpoved === 'ne') this.odvod(id, odpoved === 'ano');
+    this.normalize();
+    if (answer === 'yes' || answer === 'no') this.derive(id, answer === 'yes');
   }
 
-  /** Zapíše fakt a všechno, co z něj podle pravidel plyne. První zjištění platí. */
-  private odvod(id: string, plati: boolean): void {
-    if (this.zname.has(id)) return;
-    this.zname.set(id, plati);
-    const fronta: Fakt[] = [[id, plati]];
-    while (fronta.length) {
-      const [a, va] = fronta.pop()!;
-      for (const { kdyz, pak } of this.pravidla) {
-        if (kdyz[0] !== a || kdyz[1] !== va || this.zname.has(pak[0])) continue;
-        this.zname.set(pak[0], pak[1]);
-        fronta.push(pak);
+  /** Records a fact and everything that follows from it by the rules. The first finding wins. */
+  private derive(id: string, holds: boolean): void {
+    if (this.known.has(id)) return;
+    this.known.set(id, holds);
+    const queue: Fact[] = [[id, holds]];
+    while (queue.length) {
+      const [a, va] = queue.pop()!;
+      for (const { when, then } of this.rules) {
+        if (when[0] !== a || when[1] !== va || this.known.has(then[0])) continue;
+        this.known.set(then[0], then[1]);
+        queue.push(then);
       }
     }
   }
 
-  /** Výsledek tipu. Při omylu zvíře vyřadí a hraje se dál. */
-  vyhodnotTip(index: number, spravne: boolean): void {
-    if (spravne) return;
-    this.spatneTipy.push(index);
-    this.pst[index] = 0;
-    this.normalizuj();
+  /** Outcome of a guess. On a mistake the animal is eliminated and the game goes on. */
+  resolveGuess(index: number, correct: boolean): void {
+    if (correct) return;
+    this.wrongGuesses.push(index);
+    this.prob[index] = 0;
+    this.normalize();
   }
 
-  dalsiTah(): Tah {
-    const n = this.nastaveni;
-    const poradi = this.poradi();
-    if (poradi.length === 0 || this.spatneTipy.length >= n.maxTipu) return { typ: 'vzdavam' };
+  nextMove(): Move {
+    const n = this.settings;
+    const ranking = this.ranking();
+    if (ranking.length === 0 || this.wrongGuesses.length >= n.maxGuesses) return { type: 'giveUp' };
 
-    const tipni = (x: { index: number; pst: number }): Tah => ({ typ: 'tip', index: x.index, zvire: this.db.zvirata[x.index], jistota: x.pst });
-    const nej = poradi[0];
+    const makeGuess = (x: { index: number; prob: number }): Move => ({ type: 'guess', index: x.index, animal: this.db.animals[x.index], confidence: x.prob });
+    const best = ranking[0];
 
-    // Favorit odporuje některé odpovědi, ale jsou tu zvířata bez rozporu (nebo s menším):
-    // ta se musí vyloučit dřív, než ho postavička tipne.
-    const minRozporu = Math.min(...poradi.map((x) => this.rozpory[x.index]));
-    const souhlasi = poradi.filter((x) => this.rozpory[x.index] === minRozporu);
-    if (this.rozpory[nej.index] > minRozporu) {
-      const otazka = this.pocetOtazek < n.maxOtazek ? this.vyberOtazku(this.ohnisko(nej.index, souhlasi)) : null;
-      if (otazka) return { typ: 'otazka', id: otazka, text: this.db.otazky[otazka] };
-      return tipni(souhlasi[0]);
+    // The favorite contradicts some answer, but there are animals without a contradiction (or with a smaller one):
+    // those must be ruled out before the character guesses it.
+    const minContradictions = Math.min(...ranking.map((x) => this.contradictions[x.index]));
+    const consistent = ranking.filter((x) => this.contradictions[x.index] === minContradictions);
+    if (this.contradictions[best.index] > minContradictions) {
+      const question = this.questionCount < n.maxQuestions ? this.pickQuestion(this.focus(best.index, consistent)) : null;
+      if (question) return { type: 'question', id: question, text: this.db.questions[question] };
+      return makeGuess(consistent[0]);
     }
 
-    const tip = tipni(nej);
-    const druhy = poradi[1]?.pst ?? 0;
+    const guess = makeGuess(best);
+    const second = ranking[1]?.prob ?? 0;
 
-    if (nej.pst >= n.jistotaTipu) return tip;
-    if (this.pocetOtazek >= n.maxOtazek) return tip;
-    // po delším ptaní stačí, když favorit jasně vede
-    if (this.pocetOtazek >= n.trpelivost && nej.pst >= 0.5 && nej.pst >= 3 * druhy) return tip;
+    if (best.prob >= n.guessConfidence) return guess;
+    if (this.questionCount >= n.maxQuestions) return guess;
+    // after longer questioning it is enough if the favorite clearly leads
+    if (this.questionCount >= n.patience && best.prob >= 0.5 && best.prob >= 3 * second) return guess;
 
-    // favorit je skoro jistý a odpověď na žádnou otázku by tip (skoro) nezměnila:
-    // další otázka by jen potvrzovala to, co je jasné
-    if (nej.pst >= n.jistotaBezOtazky && this.prinosNejlepsiOtazky() < n.prinosOtazky) return tip;
+    // the favorite is almost certain and no question's answer would (hardly) change the guess:
+    // another question would only confirm what is already clear
+    if (best.prob >= n.confidenceWithoutQuestion && this.bestQuestionGain() < n.questionGain) return guess;
 
-    const otazka = this.vyberOtazku();
-    if (!otazka) return tip;
-    return { typ: 'otazka', id: otazka, text: this.db.otazky[otazka] };
+    const question = this.pickQuestion();
+    if (!question) return guess;
+    return { type: 'question', id: question, text: this.db.questions[question] };
   }
 
   /**
-   * O kolik nejvíc může jedna otázka zvednout šanci, že tip po ní bude správně.
-   * Teď by postavička tipla favorita (šance = jeho pravděpodobnost). Po odpovědi tipne
-   * nejpravděpodobnější zvíře; když je to u obou odpovědí zase favorit, otázka nic nepřinese.
+   * By how much a single question can at most raise the chance that the guess after it is correct.
+   * Right now the character would guess the favorite (chance = its probability). After an answer it guesses
+   * the most probable animal; if that is the favorite again for both answers, the question brings nothing.
    */
-  prinosNejlepsiOtazky(): number {
-    const mozna = this.mozna();
-    const nej = Math.max(...this.pst);
+  bestQuestionGain(): number {
+    const plausible = this.plausible();
+    const best = Math.max(...this.prob);
     let max = 0;
-    for (const id of Object.keys(this.db.otazky)) {
-      if (!this.muzeSePtat(id, mozna)) continue;
-      const chyba = this.chybaOtazky(id);
-      let ano = 0;
-      let ne = 0;
-      this.pst.forEach((p, i) => {
+    for (const id of Object.keys(this.db.questions)) {
+      if (!this.canAsk(id, plausible)) continue;
+      const mistakeRate = this.questionMistakeRate(id);
+      let yes = 0;
+      let no = 0;
+      this.prob.forEach((p, i) => {
         if (p === 0) return;
-        const v = this.db.zvirata[i].a[id] ?? 0;
-        ano = Math.max(ano, p * verohodnost(v, 'ano', chyba));
-        ne = Math.max(ne, p * verohodnost(v, 'ne', chyba));
+        const v = this.db.animals[i].traits[id] ?? 0;
+        yes = Math.max(yes, p * likelihood(v, 'yes', mistakeRate));
+        no = Math.max(no, p * likelihood(v, 'no', mistakeRate));
       });
-      max = Math.max(max, ano + ne - nej);
+      max = Math.max(max, yes + no - best);
     }
     return max;
   }
 
   /**
-   * Váhy pro otázku, která rozsoudí favorita a zvířata bez rozporu:
-   * favorit dostane polovinu, zvířata bez rozporu druhou polovinu podle svých pravděpodobností.
+   * Weights for a question that decides between the favorite and the animals without a contradiction:
+   * the favorite gets half, the animals without a contradiction share the other half by their probabilities.
    */
-  private ohnisko(favorit: number, souhlasi: { index: number; pst: number }[]): number[] {
-    const w = this.pst.map(() => 0);
-    const suma = souhlasi.reduce((s, x) => s + x.pst, 0);
-    for (const x of souhlasi) w[x.index] = suma > 0 ? (0.5 * x.pst) / suma : 0.5 / souhlasi.length;
-    w[favorit] = 0.5;
+  private focus(favorite: number, consistent: { index: number; prob: number }[]): number[] {
+    const w = this.prob.map(() => 0);
+    const sum = consistent.reduce((s, x) => s + x.prob, 0);
+    for (const x of consistent) w[x.index] = sum > 0 ? (0.5 * x.prob) / sum : 0.5 / consistent.length;
+    w[favorite] = 0.5;
     return w;
   }
 
   /**
-   * Zvířata, která sedí na odpovědi (mají nejméně rozporů). Na co mají všechna stejnou
-   * jasnou odpověď, to už z odpovědí plyne. Když sedí jen jedno, porovnává se se zvířaty,
-   * se kterými postavička ještě vážně počítá (aspoň desetina pravděpodobnosti favorita).
+   * Animals that fit the answers (with the fewest contradictions). Whatever all of them answer the same
+   * clear way already follows from the answers. When only one fits, it is compared with the animals
+   * the character still seriously considers (at least a tenth of the favorite's probability).
    */
-  private mozna(): number[] {
-    const veHre = this.pst.map((p, i) => (p > 0 ? i : -1)).filter((i) => i >= 0);
-    const min = Math.min(...veHre.map((i) => this.rozpory[i]));
-    const sedi = veHre.filter((i) => this.rozpory[i] === min);
-    if (sedi.length > 1) return sedi;
-    const max = Math.max(...this.pst);
-    return veHre.filter((i) => this.pst[i] >= 0.1 * max);
+  private plausible(): number[] {
+    const inPlay = this.prob.map((p, i) => (p > 0 ? i : -1)).filter((i) => i >= 0);
+    const min = Math.min(...inPlay.map((i) => this.contradictions[i]));
+    const fits = inPlay.filter((i) => this.contradictions[i] === min);
+    if (fits.length > 1) return fits;
+    const max = Math.max(...this.prob);
+    return inPlay.filter((i) => this.prob[i] >= 0.1 * max);
   }
 
-  /** Mají všechna zvířata na otázku stejnou jasnou odpověď? Pak je otázka zbytečná. */
-  private jeJasna(id: string, zvirata: number[]): boolean {
-    if (zvirata.length === 0) return false;
-    const v = zvirata.map((i) => this.db.zvirata[i].a[id] ?? 0);
+  /** Do all animals have the same clear answer to the question? Then the question is needless. */
+  private isClear(id: string, animals: number[]): boolean {
+    if (animals.length === 0) return false;
+    const v = animals.map((i) => this.db.animals[i].traits[id] ?? 0);
     return v.every((x) => x <= 0.1) || v.every((x) => x >= 0.9);
   }
 
   /**
-   * Dá se na otázku ještě ptát? Ne, když už padla, když odpověď plyne z pravidel
-   * (pták → má peří), nebo když ji mají stejnou všechna zvířata, která ještě sedí
-   * (žije v moři → nežije v lese, obojživelník → nemá peří).
+   * Can the question still be asked? No, if it was already asked, if the answer follows from the rules
+   * (bird → has feathers), or if all the animals that still fit have the same answer
+   * (lives in the sea → does not live in the forest, amphibian → has no feathers).
    */
-  muzeSePtat(id: string, mozna = this.mozna()): boolean {
-    return !this.polozene.has(id) && !this.zname.has(id) && !this.jeJasna(id, mozna);
+  canAsk(id: string, plausible = this.plausible()): boolean {
+    return !this.asked.has(id) && !this.known.has(id) && !this.isClear(id, plausible);
   }
 
-  /** Otázka s nejmenší očekávanou entropií po odpovědi ano/ne. */
-  vyberOtazku(vahy: number[] = this.pst): string | null {
-    const { pestrost } = this.nastaveni;
-    const h0 = entropie(vahy);
-    const kandidati: { id: string; zisk: number }[] = [];
-    const mozna = this.mozna();
+  /** The question with the smallest expected entropy after a yes/no answer. */
+  pickQuestion(weights: number[] = this.prob): string | null {
+    const { variety } = this.settings;
+    const h0 = entropy(weights);
+    const candidates: { id: string; gain: number }[] = [];
+    const plausible = this.plausible();
 
-    for (const id of Object.keys(this.db.otazky)) {
-      if (!this.muzeSePtat(id, mozna)) continue;
-      const chyba = this.chybaOtazky(id);
-      const wAno: number[] = [];
-      const wNe: number[] = [];
-      let pAno = 0;
-      let pNe = 0;
-      vahy.forEach((p, i) => {
+    for (const id of Object.keys(this.db.questions)) {
+      if (!this.canAsk(id, plausible)) continue;
+      const mistakeRate = this.questionMistakeRate(id);
+      const wYes: number[] = [];
+      const wNo: number[] = [];
+      let pYes = 0;
+      let pNo = 0;
+      weights.forEach((p, i) => {
         if (p === 0) return;
-        const v = this.db.zvirata[i].a[id] ?? 0;
-        const a = p * verohodnost(v, 'ano', chyba);
-        const ne = p * verohodnost(v, 'ne', chyba);
-        wAno.push(a);
-        wNe.push(ne);
-        pAno += a;
-        pNe += ne;
+        const v = this.db.animals[i].traits[id] ?? 0;
+        const a = p * likelihood(v, 'yes', mistakeRate);
+        const no = p * likelihood(v, 'no', mistakeRate);
+        wYes.push(a);
+        wNo.push(no);
+        pYes += a;
+        pNo += no;
       });
-      const h = pAno * entropie(wAno) + pNe * entropie(wNe);
-      kandidati.push({ id, zisk: h0 - h });
+      const h = pYes * entropy(wYes) + pNo * entropy(wNo);
+      candidates.push({ id, gain: h0 - h });
     }
 
-    if (kandidati.length === 0) return null;
-    kandidati.sort((a, b) => b.zisk - a.zisk);
-    const nejlepsi = kandidati[0].zisk;
-    if (nejlepsi < 0.01) return null;
-    // pro pestrost náhodně z otázek, které jsou skoro stejně dobré jako nejlepší
-    const dobre = kandidati.filter((k) => k.zisk >= nejlepsi * (1 - pestrost));
-    return dobre[Math.floor(this.rng() * dobre.length)].id;
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => b.gain - a.gain);
+    const top = candidates[0].gain;
+    if (top < 0.01) return null;
+    // for variety, a random pick among questions that are almost as good as the best one
+    const good = candidates.filter((k) => k.gain >= top * (1 - variety));
+    return good[Math.floor(this.rng() * good.length)].id;
   }
 
-  private normalizuj(): void {
-    const suma = this.pst.reduce((s, x) => s + x, 0);
-    if (suma > 0) this.pst = this.pst.map((x) => x / suma);
+  private normalize(): void {
+    const sum = this.prob.reduce((s, x) => s + x, 0);
+    if (sum > 0) this.prob = this.prob.map((x) => x / sum);
   }
 }

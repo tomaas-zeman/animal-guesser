@@ -1,7 +1,7 @@
 node_modules
 dist
 *.log
-public/hlasy/index.json
-hlasy-seznam.json
+public/voices/index.json
+voice-list.json
 .env
 .env.*

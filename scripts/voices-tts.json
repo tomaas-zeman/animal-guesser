@@ -1,0 +1,104 @@
+{
+  "_note": "Voices for neural TTS (scripts/tts.ts). API keys do not belong here; they are read from environment variables.",
+  "edge": {
+    "_note": "Free via edge-tts. Pitch in Hz, rate in percent.",
+    "fox": {
+      "voice": "cs-CZ-VlastaNeural",
+      "pitch": "+15Hz",
+      "rate": "+0%"
+    },
+    "banana": {
+      "voice": "cs-CZ-AntoninNeural",
+      "pitch": "+3Hz",
+      "rate": "+8%"
+    },
+    "vojtachu": {
+      "voice": "cs-CZ-AntoninNeural",
+      "pitch": "+25Hz",
+      "rate": "+5%"
+    }
+  },
+  "azure": {
+    "fox": {
+      "voice": "cs-CZ-VlastaNeural",
+      "pitch": "+8%",
+      "rate": "+0%"
+    },
+    "banana": {
+      "voice": "cs-CZ-AntoninNeural",
+      "pitch": "+2%",
+      "rate": "+8%"
+    },
+    "vojtachu": {
+      "voice": "cs-CZ-AntoninNeural",
+      "pitch": "+15%",
+      "rate": "+5%"
+    }
+  },
+  "google": {
+    "_note": "Chirp 3 HD has no child voices and no pitch control. The youngest and liveliest ones were picked: Leda (youthful), Fenrir (spirited), Achird (friendly).",
+    "fox": {
+      "voice": "cs-CZ-Chirp3-HD-Leda",
+      "rate": 1.08
+    },
+    "banana": {
+      "voice": "cs-CZ-Chirp3-HD-Fenrir",
+      "rate": 1.1
+    },
+    "vojtachu": {
+      "voice": "cs-CZ-Chirp3-HD-Achird",
+      "rate": 1.03
+    }
+  },
+  "elevenlabs": {
+    "_note": "Fill in voice_ids from the ElevenLabs voice library (https://elevenlabs.io/app/voice-library).",
+    "model": "eleven_multilingual_v2",
+    "fox": {
+      "voice": ""
+    },
+    "banana": {
+      "voice": ""
+    },
+    "vojtachu": {
+      "voice": ""
+    }
+  },
+  "compare": [
+    {
+      "service": "google",
+      "voice": "cs-CZ-Chirp3-HD-Leda"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Chirp3-HD-Fenrir"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Chirp3-HD-Achird"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Wavenet-A"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Wavenet-B"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Standard-A"
+    },
+    {
+      "service": "google",
+      "voice": "cs-CZ-Standard-B"
+    },
+    {
+      "service": "edge",
+      "voice": "cs-CZ-VlastaNeural"
+    },
+    {
+      "service": "edge",
+      "voice": "cs-CZ-AntoninNeural"
+    }
+  ]
+}

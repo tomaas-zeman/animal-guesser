@@ -1,131 +1,131 @@
 import { describe, expect, it } from 'vitest';
-import db from '../data/zvirata.json';
-import { Hra, type Databaze, type Odpoved } from './engine';
-import { mulberry32 } from './simulace';
+import db from '../data/animals.json';
+import { Game, type Database, type Answer } from './engine';
+import { mulberry32 } from './simulation';
 
-const databaze = db as unknown as Databaze;
-const index = (jmeno: string) => databaze.zvirata.findIndex((z) => z.jmeno === jmeno);
+const database = db as unknown as Database;
+const index = (name: string) => database.animals.findIndex((z) => z.name === name);
 
-/** Hraje podle zadaných odpovědí, na ostatní odpovídá podle profilu zvířete. Vrací položené otázky a tipy. */
-function hraj(profil: string, vynucene: Record<string, Odpoved>, seed = 1) {
-  const hra = new Hra(databaze, {}, mulberry32(seed));
-  const a = databaze.zvirata[index(profil)].a;
-  const otazky: string[] = [];
-  const tipy: string[] = [];
-  for (let krok = 0; krok < 60; krok++) {
-    const tah = hra.dalsiTah();
-    if (tah.typ === 'vzdavam') break;
-    if (tah.typ === 'tip') {
-      tipy.push(tah.zvire.jmeno);
-      if (tah.zvire.jmeno === profil) break;
-      hra.vyhodnotTip(tah.index, false);
+/** Plays by the given answers, answers the rest by the animal's profile. Returns the questions asked and the guesses. */
+function playScripted(profile: string, forced: Record<string, Answer>, seed = 1) {
+  const game = new Game(database, {}, mulberry32(seed));
+  const a = database.animals[index(profile)].traits;
+  const questions: string[] = [];
+  const guesses: string[] = [];
+  for (let step = 0; step < 60; step++) {
+    const move = game.nextMove();
+    if (move.type === 'giveUp') break;
+    if (move.type === 'guess') {
+      guesses.push(move.animal.name);
+      if (move.animal.name === profile) break;
+      game.resolveGuess(move.index, false);
       continue;
     }
-    otazky.push(tah.id);
-    hra.odpovez(tah.id, vynucene[tah.id] ?? ((a[tah.id] ?? 0) >= 0.5 ? 'ano' : 'ne'));
+    questions.push(move.id);
+    game.answer(move.id, forced[move.id] ?? ((a[move.id] ?? 0) >= 0.5 ? 'yes' : 'no'));
   }
-  return { otazky, tipy, hra };
+  return { questions, guesses, game };
 }
 
-describe('logika hádání', () => {
-  it('po "je to pták" se už neptá na peří, křídla ani na to, jestli je to savec', () => {
-    const hra = new Hra(databaze, {}, mulberry32(3));
-    hra.odpovez('ptak', 'ano');
-    for (const id of ['peri', 'kridla', 'dve', 'vejce', 'savec', 'ryba', 'srst', 'hmyz']) expect(hra.muzeSePtat(id), id).toBe(false);
-    expect(hra.muzeSePtat('leta')).toBe(true);
+describe('guessing logic', () => {
+  it('after "it is a bird" it no longer asks about feathers, wings or whether it is a mammal', () => {
+    const game = new Game(database, {}, mulberry32(3));
+    game.answer('bird', 'yes');
+    for (const id of ['feathers', 'wings', 'two_legs', 'lays_eggs', 'mammal', 'fish', 'fur', 'insect']) expect(game.canAsk(id), id).toBe(false);
+    expect(game.canAsk('flies')).toBe(true);
   });
 
-  it('po "není to pták" se neptá, jestli má peří', () => {
-    const hra = new Hra(databaze, {}, mulberry32(3));
-    hra.odpovez('ptak', 'ne');
-    expect(hra.muzeSePtat('peri')).toBe(false);
-    expect(hra.muzeSePtat('kridla')).toBe(true);
+  it('after "it is not a bird" it does not ask whether it has feathers', () => {
+    const game = new Game(database, {}, mulberry32(3));
+    game.answer('bird', 'no');
+    expect(game.canAsk('feathers')).toBe(false);
+    expect(game.canAsk('wings')).toBe(true);
   });
 
-  it('"může být" a "nevím" nic neodvozují', () => {
-    const hra = new Hra(databaze, {}, mulberry32(3));
-    hra.odpovez('ptak', 'mozna');
-    hra.odpovez('savec', 'nevim');
-    expect(hra.muzeSePtat('peri')).toBe(true);
-    expect(hra.muzeSePtat('ptak')).toBe(false);
+  it('"maybe" and "I don\'t know" derive nothing', () => {
+    const game = new Game(database, {}, mulberry32(3));
+    game.answer('bird', 'maybe');
+    game.answer('mammal', 'unknown');
+    expect(game.canAsk('feathers')).toBe(true);
+    expect(game.canAsk('bird')).toBe(false);
   });
 
-  it('když hráč řekne, že není noční, netipuje sovu, dokud jsou jiní ptáci', () => {
-    for (const ptak of ['Vrabec', 'Kos', 'Vrána', 'Sýkorka', 'Holub', 'Orel', 'Sova']) {
+  it('when the player says it is not nocturnal, it does not guess an owl while there are other birds', () => {
+    for (const bird of ['Vrabec', 'Kos', 'Vrána', 'Sýkorka', 'Holub', 'Orel', 'Sova']) {
       for (let seed = 1; seed <= 5; seed++) {
-        const { tipy, hra } = hraj(ptak, { noc: 'ne' }, seed);
-        if (!hra.historie.some((h) => h.id === 'noc')) continue;
-        expect(hra.rozpory[index('Sova')]).toBeGreaterThan(0);
-        if (ptak === 'Sova') continue;
-        expect(tipy).not.toContain('Sova');
-        expect(tipy.at(-1)).toBe(ptak);
+        const { guesses, game } = playScripted(bird, { nocturnal: 'no' }, seed);
+        if (!game.history.some((h) => h.id === 'nocturnal')) continue;
+        expect(game.contradictions[index('Sova')]).toBeGreaterThan(0);
+        if (bird === 'Sova') continue;
+        expect(guesses).not.toContain('Sova');
+        expect(guesses.at(-1)).toBe(bird);
       }
     }
   });
 
-  it('nikdy se nezeptá dvakrát na totéž', () => {
-    for (let i = 0; i < databaze.zvirata.length; i++) {
-      const { otazky } = hraj(databaze.zvirata[i].jmeno, {}, i);
-      expect(new Set(otazky).size).toBe(otazky.length);
+  it('never asks the same thing twice', () => {
+    for (let i = 0; i < database.animals.length; i++) {
+      const { questions } = playScripted(database.animals[i].name, {}, i);
+      expect(new Set(questions).size).toBe(questions.length);
     }
   });
 });
 
-describe('na co se už neptá', () => {
-  it('po "žije v moři" se neptá, jestli žije v lese, na poušti nebo v české přírodě', () => {
-    const hra = new Hra(databaze, {}, mulberry32(5));
-    hra.odpovez('more', 'ano');
-    for (const id of ['les', 'poust', 'cesko', 'nora', 'leze']) expect(hra.muzeSePtat(id), id).toBe(false);
+describe('what it no longer asks about', () => {
+  it('after "lives in the sea" it does not ask whether it lives in the forest, the desert or Czech nature', () => {
+    const game = new Game(database, {}, mulberry32(5));
+    game.answer('sea', 'yes');
+    for (const id of ['forest', 'desert', 'czechia', 'burrow', 'climbs']) expect(game.canAsk(id), id).toBe(false);
   });
 
-  it('po "je to obojživelník" se neptá na peří, srst ani šupiny', () => {
-    const hra = new Hra(databaze, {}, mulberry32(5));
-    hra.odpovez('obojzivelnik', 'ano');
-    for (const id of ['peri', 'srst', 'supiny', 'kridla', 'ploutve', 'kopyta']) expect(hra.muzeSePtat(id), id).toBe(false);
+  it('after "it is an amphibian" it does not ask about feathers, fur or scales', () => {
+    const game = new Game(database, {}, mulberry32(5));
+    game.answer('amphibian', 'yes');
+    for (const id of ['feathers', 'fur', 'scales', 'wings', 'fins', 'hooves']) expect(game.canAsk(id), id).toBe(false);
   });
 
-  it('u žádného zvířete se neptá na nic, co už z odpovědí plyne', () => {
-    // nezávislá kontrola: zvířata, která sedí na všechny dosavadní odpovědi, nesmí mít
-    // na položenou otázku všechna stejnou jasnou odpověď
-    const zbytecne: string[] = [];
-    databaze.zvirata.forEach((z, cil) => {
+  it('for no animal does it ask about anything that already follows from the answers', () => {
+    // independent check: animals that fit all answers so far must not all have
+    // the same clear answer to the question asked
+    const needless: string[] = [];
+    database.animals.forEach((z, target) => {
       for (const seed of [1, 2]) {
-        const hra = new Hra(databaze, {}, mulberry32(seed * 1000 + cil));
-        for (let krok = 0; krok < 60; krok++) {
-          const tah = hra.dalsiTah();
-          if (tah.typ !== 'otazka') break;
-          const sedi = databaze.zvirata.filter((x, i) => hra.pst[i] > 0 && hra.rozpory[i] === 0);
-          const v = sedi.map((x) => x.a[tah.id] ?? 0);
-          if (sedi.length > 1 && (v.every((x) => x <= 0.1) || v.every((x) => x >= 0.9))) zbytecne.push(`${z.jmeno}: ${tah.id} [${sedi.map((x) => x.jmeno + "=" + (x.a[tah.id] ?? 0)).join(",")}] top: ${hra.poradi().slice(0, 4).map((x) => databaze.zvirata[x.index].jmeno + ":" + x.pst.toFixed(3) + "=" + (databaze.zvirata[x.index].a[tah.id] ?? 0)).join(",")}`);
-          hra.odpovez(tah.id, (z.a[tah.id] ?? 0) >= 0.5 ? 'ano' : 'ne');
+        const game = new Game(database, {}, mulberry32(seed * 1000 + target));
+        for (let step = 0; step < 60; step++) {
+          const move = game.nextMove();
+          if (move.type !== 'question') break;
+          const fits = database.animals.filter((x, i) => game.prob[i] > 0 && game.contradictions[i] === 0);
+          const v = fits.map((x) => x.traits[move.id] ?? 0);
+          if (fits.length > 1 && (v.every((x) => x <= 0.1) || v.every((x) => x >= 0.9))) needless.push(`${z.name}: ${move.id} [${fits.map((x) => x.name + "=" + (x.traits[move.id] ?? 0)).join(",")}] top: ${game.ranking().slice(0, 4).map((x) => database.animals[x.index].name + ":" + x.prob.toFixed(3) + "=" + (database.animals[x.index].traits[move.id] ?? 0)).join(",")}`);
+          game.answer(move.id, (z.traits[move.id] ?? 0) >= 0.5 ? 'yes' : 'no');
         }
       }
     });
-    expect(zbytecne).toEqual([]);
+    expect(needless).toEqual([]);
   });
 });
 
-describe('obojživelníci a hadi (hra nesmí odběhnout do jiné skupiny)', () => {
-  const skupina = (jmeno: string) => databaze.zvirata[index(jmeno)].a;
+describe('amphibians and snakes (the game must not run off to another group)', () => {
+  const group = (name: string) => database.animals[index(name)].traits;
 
-  // dítě odpovídá podle zvířete, jen u vynucených otázek jinak než databáze (třeba "skvrny nemá")
-  const pripady: [string, Record<string, Odpoved>, string][] = [
-    ['Mlok', { voda: 'ano', skace: 'ne', skvrny: 'ne', vzor: 'ne', pestre: 'ne' }, 'obojzivelnik'],
-    ['Mlok', { voda: 'ano', skace: 'ne' }, 'obojzivelnik'],
-    ['Velemlok', { voda: 'ano', skace: 'ne' }, 'obojzivelnik'],
-    ['Čolek', { skace: 'ne', les: 'ne' }, 'obojzivelnik'],
-    ['Skokan', { zelene: 'ne' }, 'obojzivelnik'],
-    ['Kuňka', { kvaka: 'ne' }, 'obojzivelnik'],
-    ['Užovka', { les: 'ne', vzor: 'ne' }, 'plaz'],
+  // the child answers by the animal, only for the forced questions differently from the database (e.g. "has no spots")
+  const cases: [string, Record<string, Answer>, string][] = [
+    ['Mlok', { water: 'yes', jumps: 'no', spots: 'no', patterned: 'no', colorful: 'no' }, 'amphibian'],
+    ['Mlok', { water: 'yes', jumps: 'no' }, 'amphibian'],
+    ['Velemlok', { water: 'yes', jumps: 'no' }, 'amphibian'],
+    ['Čolek', { jumps: 'no', forest: 'no' }, 'amphibian'],
+    ['Skokan', { green: 'no' }, 'amphibian'],
+    ['Kuňka', { quacks: 'no' }, 'amphibian'],
+    ['Užovka', { forest: 'no', patterned: 'no' }, 'reptile'],
   ];
-  for (const [jmeno, vynucene, trida] of pripady) {
-    it(`${jmeno} (${Object.keys(vynucene).join(', ')}): tipuje jen z ${trida} a nakonec trefí`, () => {
+  for (const [name, forced, animalClass] of cases) {
+    it(`${name} (${Object.keys(forced).join(', ')}): guesses only from ${animalClass} and finally hits`, () => {
       for (let seed = 1; seed <= 4; seed++) {
-        const { tipy, hra } = hraj(jmeno, vynucene, seed);
-        expect(tipy.at(-1), tipy.join(', ')).toBe(jmeno);
-        // když už hráč potvrdil skupinu, tipy z jiné skupiny nedávají smysl
-        if (hra.zname.get(trida) === true) for (const t of tipy) expect(skupina(t)[trida] ?? 0, t).toBeGreaterThan(0.5);
-        expect(tipy.length).toBeLessThanOrEqual(3);
+        const { guesses, game } = playScripted(name, forced, seed);
+        expect(guesses.at(-1), guesses.join(', ')).toBe(name);
+        // once the player has confirmed the group, guesses from another group make no sense
+        if (game.known.get(animalClass) === true) for (const t of guesses) expect(group(t)[animalClass] ?? 0, t).toBeGreaterThan(0.5);
+        expect(guesses.length).toBeLessThanOrEqual(3);
       }
     });
   }

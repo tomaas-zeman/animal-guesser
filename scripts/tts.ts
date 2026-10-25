@@ -1,53 +1,53 @@
-// Namluví věty postaviček neuronovým TTS a uloží je do public/hlasy/<postava>/<id>.mp3.
-// Klíč k API se bere z proměnné prostředí, nikdy ho necommituj.
+// Records the characters' sentences with neural TTS and saves them to public/voices/<character>/<id>.mp3.
+// The API key is read from an environment variable, never commit it.
 //
-// Zdarma a bez klíče: `edge` (neuronové hlasy Microsoft Edge přes nástroj edge-tts, `pip install edge-tts`).
-// Na GitHubu to umí workflow „Namluvit hlasy“ (.github/workflows/hlasy.yml), nic se nemusí instalovat.
+// Free and keyless: `edge` (Microsoft Edge neural voices via the edge-tts tool, `pip install edge-tts`).
+// On GitHub the "Record voices" workflow (.github/workflows/voices.yml) does it, nothing needs to be installed.
 //
-//   npm run hlasy:tts -- edge
-//   AZURE_SPEECH_KEY=… AZURE_SPEECH_REGION=westeurope npm run hlasy:tts -- azure
-//   GOOGLE_TTS_KEY=… npm run hlasy:tts -- google --postava liska
-//   ELEVENLABS_API_KEY=… npm run hlasy:tts -- elevenlabs --postava banan --limit 20
+//   npm run voices:tts -- edge
+//   AZURE_SPEECH_KEY=… AZURE_SPEECH_REGION=westeurope npm run voices:tts -- azure
+//   GOOGLE_TTS_KEY=… npm run voices:tts -- google --character fox
+//   ELEVENLABS_API_KEY=… npm run voices:tts -- elevenlabs --character banana --limit 20
 //
-// Přepínače: --postava <id> (jinak všechny), --limit <n> (na zkoušku), --prepsat (i už nahrané),
-// TTS_SOUBEZNE=<n> určí, kolik požadavků běží najednou, TTS_ZA_MINUTU=<n> strop za minutu (Google výchozí 30). --porovnani (zkušební věta několika hlasy do porovnani/), --zkouska (jen vypíše, co by se namlouvalo). Bez --limit smaže nahrávky vět, které už hra neříká. Hlasy a jejich výšku/tempo nastavíš v scripts/hlasy-tts.json.
+// Flags: --character <id> (default: all), --limit <n> (for trying out), --overwrite (also what is already recorded),
+// TTS_CONCURRENCY=<n> sets how many requests run at once, TTS_PER_MINUTE=<n> caps requests per minute (Google defaults to 30). --compare (test sentence in several voices into compare/), --dry-run (only prints what would be recorded). Without --limit it deletes recordings of sentences the game no longer says. Voices and their pitch/rate are set in scripts/voices-tts.json.
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { vsechnyUseky, type Usek } from '../src/hlasy/klice';
-import { HLASKY } from '../src/postavicky/hlasky';
+import { allSegments, type Segment } from '../src/voices/keys';
+import { LINES } from '../src/characters/lines';
 
-interface NastaveniHlasu {
-  hlas: string;
-  vyska?: string;
-  tempo?: string | number;
+interface VoiceConfig {
+  voice: string;
+  pitch?: string;
+  rate?: string | number;
 }
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    postava: { type: 'string' },
+    character: { type: 'string' },
     limit: { type: 'string' },
-    prepsat: { type: 'boolean', default: false },
-    zkouska: { type: 'boolean', default: false },
-    porovnani: { type: 'boolean', default: false },
+    overwrite: { type: 'boolean', default: false },
+    'dry-run': { type: 'boolean', default: false },
+    compare: { type: 'boolean', default: false },
   },
 });
 
-const sluzba = positionals[0] ?? (values.porovnani ? 'edge' : '');
-const koren = join(import.meta.dirname, '..');
-const nastaveni = JSON.parse(readFileSync(join(import.meta.dirname, 'hlasy-tts.json'), 'utf8'));
-if (!['edge', 'azure', 'google', 'elevenlabs'].includes(sluzba)) {
-  console.error('Použití: npm run hlasy:tts -- <edge|azure|google|elevenlabs> [--postava liska] [--limit 10] [--prepsat] [--zkouska]');
+const service = positionals[0] ?? (values.compare ? 'edge' : '');
+const root = join(import.meta.dirname, '..');
+const config = JSON.parse(readFileSync(join(import.meta.dirname, 'voices-tts.json'), 'utf8'));
+if (!['edge', 'azure', 'google', 'elevenlabs'].includes(service)) {
+  console.error('Usage: npm run voices:tts -- <edge|azure|google|elevenlabs> [--character fox] [--limit 10] [--overwrite] [--dry-run]');
   process.exit(1);
 }
 
-function env(jmeno: string): string {
-  const v = process.env[jmeno];
+function env(name: string): string {
+  const v = process.env[name];
   if (!v) {
-    console.error(`Chybí proměnná prostředí ${jmeno}.`);
+    console.error(`Missing environment variable ${name}.`);
     process.exit(1);
   }
   return v;
@@ -55,14 +55,14 @@ function env(jmeno: string): string {
 
 const xml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Text pro TTS: začátek tipu bez tečky na konci, ať neklesá jako konec věty. */
-function textProTts(u: Usek): string {
-  return u.druh === 'zacatek' ? `${u.text}…` : u.text;
+/** Text for TTS: the start of a guess without a trailing period, so it does not fall like the end of a sentence. */
+function ttsText(u: Segment): string {
+  return u.kind === 'start' ? `${u.text}…` : u.text;
 }
 
-async function azure(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
+async function azure(text: string, h: VoiceConfig): Promise<ArrayBuffer> {
   const region = env('AZURE_SPEECH_REGION');
-  const ssml = `<speak version="1.0" xml:lang="cs-CZ"><voice name="${h.hlas}"><prosody pitch="${h.vyska ?? '+0%'}" rate="${h.tempo ?? '+0%'}">${xml(text)}</prosody></voice></speak>`;
+  const ssml = `<speak version="1.0" xml:lang="cs-CZ"><voice name="${h.voice}"><prosody pitch="${h.pitch ?? '+0%'}" rate="${h.rate ?? '+0%'}">${xml(text)}</prosody></voice></speak>`;
   const r = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, {
     method: 'POST',
     headers: {
@@ -77,14 +77,14 @@ async function azure(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
   return r.arrayBuffer();
 }
 
-async function google(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
+async function google(text: string, h: VoiceConfig): Promise<ArrayBuffer> {
   const r = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${env('GOOGLE_TTS_KEY')}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       input: { text },
-      voice: { languageCode: 'cs-CZ', name: h.hlas },
-      audioConfig: { audioEncoding: 'MP3', ...(h.tempo ? { speakingRate: Number(h.tempo) } : {}), ...(h.vyska ? { pitch: Number(h.vyska) } : {}) },
+      voice: { languageCode: 'cs-CZ', name: h.voice },
+      audioConfig: { audioEncoding: 'MP3', ...(h.rate ? { speakingRate: Number(h.rate) } : {}), ...(h.pitch ? { pitch: Number(h.pitch) } : {}) },
     }),
   });
   if (!r.ok) throw new Error(`Google ${r.status}: ${await r.text()}`);
@@ -92,167 +92,167 @@ async function google(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
   return Uint8Array.from(Buffer.from(audioContent, 'base64')).buffer;
 }
 
-async function elevenlabs(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
-  if (!h.hlas) throw new Error('Doplň voice_id do scripts/hlasy-tts.json (elevenlabs).');
-  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${h.hlas}?output_format=mp3_44100_64`, {
+async function elevenlabs(text: string, h: VoiceConfig): Promise<ArrayBuffer> {
+  if (!h.voice) throw new Error('Fill in voice_id in scripts/voices-tts.json (elevenlabs).');
+  const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${h.voice}?output_format=mp3_44100_64`, {
     method: 'POST',
     headers: { 'xi-api-key': env('ELEVENLABS_API_KEY'), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, model_id: nastaveni.elevenlabs.model, language_code: 'cs' }),
+    body: JSON.stringify({ text, model_id: config.elevenlabs.model, language_code: 'cs' }),
   });
   if (!r.ok) throw new Error(`ElevenLabs ${r.status}: ${await r.text()}`);
   return r.arrayBuffer();
 }
 
-/** Hlasy Microsoft Edge přes nástroj edge-tts (Python). Zdarma, bez účtu, stejné hlasy jako Azure. */
-async function edge(text: string, h: NastaveniHlasu): Promise<ArrayBuffer> {
-  const soubor = join(tmpdir(), `hlas-${process.pid}-${Math.random().toString(36).slice(2)}.mp3`);
+/** Microsoft Edge voices via the edge-tts tool (Python). Free, no account, the same voices as Azure. */
+async function edge(text: string, h: VoiceConfig): Promise<ArrayBuffer> {
+  const file = join(tmpdir(), `voice-${process.pid}-${Math.random().toString(36).slice(2)}.mp3`);
   try {
     await new Promise<void>((resolve, reject) =>
       execFile(
         process.env.EDGE_TTS ?? 'edge-tts',
-        ['--voice', h.hlas, `--pitch=${h.vyska ?? '+0Hz'}`, `--rate=${h.tempo ?? '+0%'}`, '--text', text, '--write-media', soubor],
+        ['--voice', h.voice, `--pitch=${h.pitch ?? '+0Hz'}`, `--rate=${h.rate ?? '+0%'}`, '--text', text, '--write-media', file],
         { timeout: 60_000 },
         (e, _out, err) => (e ? reject(new Error(`edge-tts: ${err || e.message}`)) : resolve()),
       ),
     );
-    const data = readFileSync(soubor);
-    if (data.length === 0) throw new Error('edge-tts vrátil prázdný soubor');
+    const data = readFileSync(file);
+    if (data.length === 0) throw new Error('edge-tts returned an empty file');
     return Uint8Array.from(data).buffer;
   } finally {
-    rmSync(soubor, { force: true });
+    rmSync(file, { force: true });
   }
 }
 
-const SLUZBY = { edge, azure, google, elevenlabs };
+const SERVICES = { edge, azure, google, elevenlabs };
 
-/** Věta s problematickými slovy (c, ch, ř, ě, ď, ť, ň, souhlásky) na porovnání výslovnosti hlasů. */
-const ZKUSEBNI_VETA =
+/** Sentence with tricky words (c, ch, ř, ě, ď, ť, ň, consonant clusters) for comparing how voices pronounce them. */
+const TEST_SENTENCE =
   'Má ocas? Ocásek, ocasem, konec, procent, Cože? Je to čáp, ještěrka, ježek, křeček, kočka, cvrček, chobotnice, ' +
   'chameleon, tchoř, kůň, šimpanz, čolek, štika, labuť, okoun, vydra, sýkorka, ťuhýk, pštros, užovka, hroznýš, ' +
   'nosorožec, tučňák, srnec, zajíc, dikobraz, žralok, medvěd, rys ostrovid, dělá, děti, ďábel, nevím, může být.';
 
-// porovnání: zkušební věta několika hlasy (seznam v scripts/hlasy-tts.json „porovnani“) do složky porovnani/
-if (values.porovnani) {
-  const slozka = join(koren, 'porovnani');
-  mkdirSync(slozka, { recursive: true });
+// compare: test sentence in several voices (list in scripts/voices-tts.json under "compare") into the compare/ folder
+if (values.compare) {
+  const dir = join(root, 'compare');
+  mkdirSync(dir, { recursive: true });
   if (process.env.GOOGLE_TTS_KEY) {
     const r = await fetch(`https://texttospeech.googleapis.com/v1/voices?languageCode=cs-CZ&key=${process.env.GOOGLE_TTS_KEY}`);
     const { voices = [] } = r.ok ? ((await r.json()) as { voices?: { name: string; ssmlGender: string }[] }) : {};
-    console.log(`Google cs-CZ hlasy: ${voices.map((v) => `${v.name} (${v.ssmlGender})`).join(', ') || r.status}`);
+    console.log(`Google cs-CZ voices: ${voices.map((v) => `${v.name} (${v.ssmlGender})`).join(', ') || r.status}`);
   }
-  const kandidati = nastaveni.porovnani as { sluzba: keyof typeof SLUZBY; hlas: string; vyska?: string; tempo?: number | string }[];
-  for (const [i, k] of kandidati.entries()) {
-    if (k.sluzba === 'google' && !process.env.GOOGLE_TTS_KEY) continue;
-    const jmeno = `${String(i + 1).padStart(2, '0')}-${k.hlas}.mp3`;
+  const candidates = config.compare as { service: keyof typeof SERVICES; voice: string; pitch?: string; rate?: number | string }[];
+  for (const [i, k] of candidates.entries()) {
+    if (k.service === 'google' && !process.env.GOOGLE_TTS_KEY) continue;
+    const name = `${String(i + 1).padStart(2, '0')}-${k.voice}.mp3`;
     try {
-      writeFileSync(join(slozka, jmeno), Buffer.from(await SLUZBY[k.sluzba](ZKUSEBNI_VETA, k)));
-      console.log(`✓ ${jmeno}`);
+      writeFileSync(join(dir, name), Buffer.from(await SERVICES[k.service](TEST_SENTENCE, k)));
+      console.log(`✓ ${name}`);
     } catch (e) {
-      console.warn(`✗ ${k.hlas}: ${(e as Error).message.slice(0, 200)}`);
+      console.warn(`✗ ${k.voice}: ${(e as Error).message.slice(0, 200)}`);
     }
   }
   process.exit(0);
 }
 
-const postavy = values.postava ? [values.postava] : Object.keys(HLASKY);
+const characterIds = values.character ? [values.character] : Object.keys(LINES);
 const limit = values.limit ? Number(values.limit) : Infinity;
-let celkem = 0;
-const chyby: string[] = [];
-let znaku = 0;
+let total = 0;
+const errors: string[] = [];
+let chars = 0;
 
-for (const postava of postavy) {
-  const h: NastaveniHlasu | undefined = nastaveni[sluzba][postava];
+for (const characterId of characterIds) {
+  const h: VoiceConfig | undefined = config[service][characterId];
   if (!h) {
-    console.error(`V scripts/hlasy-tts.json chybí hlas pro ${sluzba}/${postava}.`);
+    console.error(`Missing voice for ${service}/${characterId}.`);
     process.exit(1);
   }
-  const slozka = join(koren, 'public', 'hlasy', postava);
-  const existujici = new Set(existsSync(slozka) ? readdirSync(slozka).map((s) => s.split('.')[0]) : []);
-  // čím byla která nahrávka namluvená (služba, hlas, nastavení, text): co nesedí s dneškem, namluví se
-  // znovu, takže postavička mluví pořád stejným hlasem, i když se mezitím hlas změnil
-  const soubZdroj = join(slozka, 'zdroj.json');
-  const zdroj: Record<string, string> = existsSync(soubZdroj) ? JSON.parse(readFileSync(soubZdroj, 'utf8')) : {};
-  const podpis = (u: Usek) => JSON.stringify([sluzba, h, textProTts(u)]);
-  const ulozZdroj = () => writeFileSync(soubZdroj, `${JSON.stringify(zdroj, null, 1)}\n`);
-  const vsechny = vsechnyUseky(postava);
-  // nahrávky vět, které už hra neříká (text se změnil nebo zmizel), se smažou; ostatní zůstanou
-  if (!values.zkouska && limit === Infinity && existsSync(slozka)) {
-    const platne = new Set(vsechny.map((u) => u.id));
-    const stare = readdirSync(slozka).filter((s) => /^[0-9a-f]{8}\./.test(s) && !platne.has(s.split('.')[0]));
-    for (const s of stare) rmSync(join(slozka, s));
-    for (const id of Object.keys(zdroj)) if (!platne.has(id)) delete zdroj[id];
-    if (stare.length) console.log(`${postava}: smazáno ${stare.length} nahrávek vět, které už hra neříká`);
+  const dir = join(root, 'public', 'voices', characterId);
+  const existing = new Set(existsSync(dir) ? readdirSync(dir).map((s) => s.split('.')[0]) : []);
+  // what each recording was recorded with (service, voice, settings, text): whatever differs from today gets
+  // recorded again, so a character keeps one voice even when the voice config changed in the meantime
+  const sourceFile = join(dir, 'source.json');
+  const source: Record<string, string> = existsSync(sourceFile) ? JSON.parse(readFileSync(sourceFile, 'utf8')) : {};
+  const signature = (u: Segment) => JSON.stringify([service, h, ttsText(u)]);
+  const saveSource = () => writeFileSync(sourceFile, `${JSON.stringify(source, null, 1)}\n`);
+  const all = allSegments(characterId);
+  // recordings of sentences the game no longer says (text changed or disappeared) are deleted; the rest stay
+  if (!values['dry-run'] && limit === Infinity && existsSync(dir)) {
+    const valid = new Set(all.map((u) => u.id));
+    const stale = readdirSync(dir).filter((s) => /^[0-9a-f]{8}\./.test(s) && !valid.has(s.split('.')[0]));
+    for (const s of stale) rmSync(join(dir, s));
+    for (const id of Object.keys(source)) if (!valid.has(id)) delete source[id];
+    if (stale.length) console.log(`${characterId}: deleted ${stale.length} recordings of sentences the game no longer says`);
   }
-  const fronta = vsechny
-    .filter((u) => values.prepsat || !existujici.has(u.id) || zdroj[u.id] !== podpis(u))
-    .slice(0, Math.max(0, limit - celkem));
-  console.log(`${postava}: ${fronta.length} vět k namluvení (${h.hlas})`);
-  if (values.zkouska) {
-    for (const u of fronta) console.log(`  ${u.id}  ${textProTts(u)}`);
-    celkem += fronta.length;
-    znaku += fronta.reduce((a, u) => a + u.text.length, 0);
+  const queue = all
+    .filter((u) => values.overwrite || !existing.has(u.id) || source[u.id] !== signature(u))
+    .slice(0, Math.max(0, limit - total));
+  console.log(`${characterId}: ${queue.length} sentences to record (${h.voice})`);
+  if (values['dry-run']) {
+    for (const u of queue) console.log(`  ${u.id}  ${ttsText(u)}`);
+    total += queue.length;
+    chars += queue.reduce((a, u) => a + u.text.length, 0);
     continue;
   }
 
-  mkdirSync(slozka, { recursive: true });
-  // pár požadavků najednou, ať to netrvá věčnost, ale služba nezačne odmítat
-  let dalsi = 0;
-  let zaSebou = 0;
-  // strop požadavků za minutu, ať nenarazíme na kvótu API (Google má limit za minutu)
-  const zaMinutu = Number(process.env.TTS_ZA_MINUTU) || (sluzba === 'google' ? 30 : 0);
-  let volno = Date.now();
-  const pockejNaRadu = async () => {
-    if (!zaMinutu) return;
-    const kdy = Math.max(volno, Date.now());
-    volno = kdy + 60_000 / zaMinutu;
-    await new Promise((r) => setTimeout(r, kdy - Date.now()));
+  mkdirSync(dir, { recursive: true });
+  // a few requests at once so it does not take forever, but the service does not start refusing
+  let next = 0;
+  let inRow = 0;
+  // request cap per minute so we do not hit the API quota (Google has a per-minute limit)
+  const perMinute = Number(process.env.TTS_PER_MINUTE) || (service === 'google' ? 30 : 0);
+  let nextFree = Date.now();
+  const waitForTurn = async () => {
+    if (!perMinute) return;
+    const when = Math.max(nextFree, Date.now());
+    nextFree = when + 60_000 / perMinute;
+    await new Promise((r) => setTimeout(r, when - Date.now()));
   };
-  const pracovnik = async () => {
-    while (dalsi < fronta.length) {
-      const u = fronta[dalsi++];
-      let limitu = 0;
-      for (let pokus = 1; ; pokus++) {
+  const worker = async () => {
+    while (next < queue.length) {
+      const u = queue[next++];
+      let rateLimitHits = 0;
+      for (let attempt = 1; ; attempt++) {
         try {
-          await pockejNaRadu();
-          const audio = await SLUZBY[sluzba as keyof typeof SLUZBY](textProTts(u), h);
-          writeFileSync(join(slozka, `${u.id}.mp3`), Buffer.from(audio));
-          zdroj[u.id] = podpis(u);
-          ulozZdroj();
-          celkem++;
-          znaku += u.text.length;
-          zaSebou = 0;
-          if (celkem % 25 === 0) console.log(`  … ${celkem} (chyb ${chyby.length})`);
+          await waitForTurn();
+          const audio = await SERVICES[service as keyof typeof SERVICES](ttsText(u), h);
+          writeFileSync(join(dir, `${u.id}.mp3`), Buffer.from(audio));
+          source[u.id] = signature(u);
+          saveSource();
+          total++;
+          chars += u.text.length;
+          inRow = 0;
+          if (total % 25 === 0) console.log(`  … ${total} (errors ${errors.length})`);
           break;
         } catch (e) {
-          // překročená kvóta za minutu: počkat, až se uvolní, a nepočítat to jako chybu věty
-          if (/\b429\b|RESOURCE_EXHAUSTED|quota/i.test((e as Error).message) && ++limitu <= 20) {
-            if (limitu === 1) console.warn(`  ⏳ limit API, čekám: ${(e as Error).message.slice(0, 200)}`);
+          // per-minute quota exceeded: wait until it frees up, and do not count it as a sentence failure
+          if (/\b429\b|RESOURCE_EXHAUSTED|quota/i.test((e as Error).message) && ++rateLimitHits <= 20) {
+            if (rateLimitHits === 1) console.warn(`  ⏳ API limit, waiting: ${(e as Error).message.slice(0, 200)}`);
             await new Promise((r) => setTimeout(r, 30_000));
-            pokus--;
+            attempt--;
             continue;
           }
-          // Edge při zahlcení vrací prázdné audio: chvíli počkat a zkusit znovu
-          if (pokus < 5) {
-            await new Promise((r) => setTimeout(r, 1500 * 2 ** pokus));
+          // Edge returns empty audio when overloaded: wait a moment and retry
+          if (attempt < 5) {
+            await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt));
             continue;
           }
-          // jedna nepovedená věta nezastaví ostatní, tu řekne dál syntéza prohlížeče
-          chyby.push(`${postava}/${u.id} „${textProTts(u)}“: ${(e as Error).message.split('\n').filter(Boolean).at(-1)}`);
-          console.warn(`  ✗ ${chyby.at(-1)}`);
-          if (chyby.length >= 20 && celkem === 0) throw new Error('Nic se nepovedlo namluvit, končím.');
-          // služba nás nejspíš zablokovala: radši skončit, co je hotové, se uloží a zbytek doplní příští běh
-          if (++zaSebou >= 12) {
-            console.warn(`  ${zaSebou} chyb za sebou, končím s ${postava}.`);
-            dalsi = fronta.length;
+          // one failed sentence does not stop the others, the browser's speech synthesis says it instead
+          errors.push(`${characterId}/${u.id} „${ttsText(u)}“: ${(e as Error).message.split('\n').filter(Boolean).at(-1)}`);
+          console.warn(`  ✗ ${errors.at(-1)}`);
+          if (errors.length >= 20 && total === 0) throw new Error('Nothing could be recorded, stopping.');
+          // the service probably blocked us: better to stop, what is done gets saved and the next run fills in the rest
+          if (++inRow >= 12) {
+            console.warn(`  ${inRow} errors in a row, stopping with ${characterId}.`);
+            next = queue.length;
           }
           break;
         }
       }
     }
   };
-  await Promise.all(Array.from({ length: Number(process.env.TTS_SOUBEZNE) || (sluzba === 'edge' ? 2 : 4) }, pracovnik));
+  await Promise.all(Array.from({ length: Number(process.env.TTS_CONCURRENCY) || (service === 'edge' ? 2 : 4) }, worker));
 }
 
-console.log(`Hotovo: ${celkem} nahrávek, ${znaku} znaků.${values.zkouska ? ' (jen zkouška, nic se nenamluvilo)' : ''}`);
-if (chyby.length) console.warn(`Nepovedlo se ${chyby.length} vět:\n${chyby.join('\n')}`);
-if (!values.zkouska && existsSync(join(koren, 'scripts', 'index-hlasu.ts'))) await import('./index-hlasu');
+console.log(`Done: ${total} recordings, ${chars} chars.${values['dry-run'] ? ' (dry run only, nothing was recorded)' : ''}`);
+if (errors.length) console.warn(`Failed ${errors.length} sentences:\n${errors.join('\n')}`);
+if (!values['dry-run'] && existsSync(join(root, 'scripts', 'index-voices.ts'))) await import('./index-voices');

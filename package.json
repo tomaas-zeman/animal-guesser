@@ -4,16 +4,16 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "tsx scripts/index-hlasu.ts",
+    "predev": "tsx scripts/index-voices.ts",
     "dev": "vite",
-    "prebuild": "tsx scripts/index-hlasu.ts",
+    "prebuild": "tsx scripts/index-voices.ts",
     "build": "tsc -p . && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "simulace": "vitest run src/game/simulace.test.ts --reporter=verbose",
-    "hlasy:index": "tsx scripts/index-hlasu.ts",
-    "hlasy:seznam": "tsx scripts/seznam-vet.ts",
-    "hlasy:tts": "tsx scripts/tts.ts"
+    "simulation": "vitest run src/game/simulation.test.ts --reporter=verbose",
+    "voices:index": "tsx scripts/index-voices.ts",
+    "voices:list": "tsx scripts/list-sentences.ts",
+    "voices:tts": "tsx scripts/tts.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

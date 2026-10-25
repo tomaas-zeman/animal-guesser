@@ -1,4 +1,4 @@
-name: Testy a nasazení
+name: Tests and deploy
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Testy a simulace hádání
+      - name: Tests and guessing simulation
         run: npm test
       - name: Build
         run: npm run build
