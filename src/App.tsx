@@ -7,7 +7,7 @@ import { EXTRAS } from './characters/lines';
 import { Dialogue, type Utterance } from './characters/dialogue';
 import { hasRecordings } from './voices/player';
 import { czechVoice, isNatural, hasVoice, speechAvailable, say, silence } from './speech/speaking';
-import { playerFinished, isPlayer, calibrate, isMeasuring, referenceLoudness, segmentPeak, startSegment, disableMeasuring, enableMeasuring, forgetPlayer } from './speech/loudness';
+import { playerFinished, isPlayer, calibrate, calibrateFromStart, isMeasuring, referenceLoudness, segmentPeak, startSegment, disableMeasuring, enableMeasuring, forgetPlayer } from './speech/loudness';
 import {
   MAX_FAILURES,
   withoutInsults,
@@ -343,7 +343,7 @@ export default function App() {
       setHeardText(texts[0]);
       if (!isStart(texts)) return false;
       forgetPlayer();
-      calibrate(loudness);
+      calibrateFromStart(loudness);
       startGameRef.current();
       return true;
     });

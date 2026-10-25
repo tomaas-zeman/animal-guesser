@@ -4,10 +4,15 @@
 // closest to the microphone, so they are the loudest. At the start ("hra") we measure
 // how loudly they speak, and answers considerably quieter than that are treated as background talk.
 
-/** An answer must have at least this share of the player's loudness (0.4 ≈ 8 dB quieter). */
-export const THRESHOLD = 0.4;
+/** An answer must have at least this share of the player's loudness (0.25 ≈ 12 dB quieter). */
+export const THRESHOLD = 0.25;
 /** A milder threshold for a clear short answer ("ne", "jo"): a short word has a lower peak than "hra". */
-export const THRESHOLD_SHORT = 0.2;
+export const THRESHOLD_SHORT = 0.15;
+/**
+ * The start word "hra" is short and emphasized, its peak is well above normal speech (measured:
+ * a normal sentence peaks at ~25 % of it). So only this share of it becomes the reference.
+ */
+export const START_FACTOR = 0.6;
 
 let stream: MediaStream | null = null;
 let ctx: AudioContext | null = null;
@@ -104,6 +109,12 @@ export function referenceLoudness(): number | null {
 
 export function forgetPlayer() {
   reference = null;
+}
+
+/** Remembers the loudness of the start word as the reference, scaled down to the level of normal speech. */
+export function calibrateFromStart(value: number) {
+  if (value <= 0) return;
+  reference = value * START_FACTOR;
 }
 
 /** Remembers the player's loudness; further answers slowly fine-tune it. */
